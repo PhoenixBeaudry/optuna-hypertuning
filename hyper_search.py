@@ -227,7 +227,7 @@ def objective(trial):
                   loss=decaying_rmse_loss)
     
     # Data prep
-    if wavelet_transform: 
+    if wavelet_transform == "True": 
         X, y = create_dataset(scale_data(perform_wavelet_transform(data)), num_previous_intervals, 100)
     else: 
         X, y = create_dataset(scale_data(data), num_previous_intervals, 100)

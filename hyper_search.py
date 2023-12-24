@@ -270,7 +270,7 @@ def objective(trial):
     return rmse
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search5", load_if_exists=True, storage="mysql://kx8as8noamlyd9xep4p6:pscale_pw_9UQKvC2pqESOwsoGROMOP7eEZt9M9fvL3aqO40KmTkY@aws.connect.psdb.cloud/hyper-search")
+study = optuna.create_study(direction='minimize', study_name="hyper-search5", load_if_exists=True, storage="mysql://nodeecnmulrx0tixj12f:pscale_pw_tgFbbqNF9LFPFftM4KNWfZixPWUfspwqeldtR7NLd9E@aws.connect.psdb.cloud/hyper-search")
 
 # Do the study
 study.optimize(objective, n_trials=100)  # Adjust the number of trials

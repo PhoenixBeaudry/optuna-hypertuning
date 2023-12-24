@@ -48,10 +48,6 @@ data_df = pd.DataFrame({
     'volume': volumes
 })
 
-# Set the timestamps as the index
-#data_df.set_index('timestamps', inplace=True)
-
-
 # Technical indicator helper functions
 def upper_shadow(df): return df['high'] - np.maximum(df['close'], df['open'])
 def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
@@ -126,11 +122,30 @@ final_data_df = df[['close', 'high', 'low', 'volume', 'SMA_5', 'SMA_15',
        'EMA_5', 'EMA_15', 'RSI', 'MACD', 'Signal_Line']]
 data  = final_data_df.values
 
-
-# Step 1: Preprocessing
-# Scale the data
 scaler = MinMaxScaler(feature_range=(0, 1))
-data_scaled = scaler.fit_transform(data)
+
+# Function to scale dataset
+def scale_data(data):
+    data_scaled = scaler.fit_transform(data)
+    return data_scaled
+
+def wavelet_transform(data):
+    # Initialize an empty list to store the denoised features
+    data_denoised_list = []
+
+    # Apply wavelet transform to each feature separately
+    for i in range(data.shape[1]):
+        coeffs = pywt.wavedec(data[:, i], wavelet='db1', level=2)
+        # Zero out the high-frequency components for denoising
+        coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
+        # Reconstruct the denoised signal
+        data_denoised = pywt.waverec(coeffs, 'db1')
+        # Append the denoised feature to the list
+        data_denoised_list.append(data_denoised)
+
+    # Combine the denoised features back into a single array
+    data_denoised_combined = np.column_stack(data_denoised_list)
+    return data_denoised_combined
 
 # Function to create dataset
 def create_dataset(data, input_time_steps=100, future_intervals=100):
@@ -191,12 +206,13 @@ num_features = data.shape[1]
 
 # Optuna objective
 def objective(trial):
-    hidden_units = trial.suggest_int('hidden_units', 50, 1024)
-    num_layers = trial.suggest_int('num_layers', 1, 3)
+    hidden_units = trial.suggest_int('hidden_units', 128, 1024)
+    num_layers = trial.suggest_int('num_layers', 1, 2)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
-    batch_size = trial.suggest_categorical('batch_size', [128, 256, 512, 1024])
+    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 200)
+    wavelet_transform = trial.suggest_categorical("wavelet_transform", ["True", "False"])
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -210,8 +226,11 @@ def objective(trial):
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
                   loss=decaying_rmse_loss)
     
-    # Data preparation
-    X, y = create_dataset(data_scaled, num_previous_intervals, 100)
+    # Data prep
+    if wavelet_transform: 
+        X, y = create_dataset(scale_data(wavelet_transform(data)), num_previous_intervals, 100)
+    else: 
+        X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
     
     # Split into train and test set
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -247,6 +266,7 @@ def objective(trial):
     # (Selecting only the first feature, assuming y_test corresponds to the first feature)
     original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
+
     return rmse
 
 #Create Study

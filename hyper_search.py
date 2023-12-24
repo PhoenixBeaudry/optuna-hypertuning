@@ -129,7 +129,7 @@ def scale_data(data):
     data_scaled = scaler.fit_transform(data)
     return data_scaled
 
-def wavelet_transform(data):
+def perform_wavelet_transform(data):
     # Initialize an empty list to store the denoised features
     data_denoised_list = []
 
@@ -228,7 +228,7 @@ def objective(trial):
     
     # Data prep
     if wavelet_transform: 
-        X, y = create_dataset(scale_data(wavelet_transform(data)), num_previous_intervals, 100)
+        X, y = create_dataset(scale_data(perform_wavelet_transform(data)), num_previous_intervals, 100)
     else: 
         X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
     

@@ -206,8 +206,8 @@ num_features = data.shape[1]
 
 # Optuna objective
 def objective(trial):
-    hidden_units = trial.suggest_int('hidden_units', 128, 1024)
-    num_layers = trial.suggest_int('num_layers', 1, 2)
+    hidden_units = trial.suggest_int('hidden_units', 128, 2048)
+    num_layers = 1
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
     batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
@@ -270,7 +270,7 @@ def objective(trial):
     return rmse
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search2", load_if_exists=True, storage="mysql://kx8as8noamlyd9xep4p6:pscale_pw_9UQKvC2pqESOwsoGROMOP7eEZt9M9fvL3aqO40KmTkY@aws.connect.psdb.cloud/hyper-search")
+study = optuna.create_study(direction='minimize', study_name="hyper-search5", load_if_exists=True, storage="mysql://kx8as8noamlyd9xep4p6:pscale_pw_9UQKvC2pqESOwsoGROMOP7eEZt9M9fvL3aqO40KmTkY@aws.connect.psdb.cloud/hyper-search")
 
 # Do the study
 study.optimize(objective, n_trials=100)  # Adjust the number of trials

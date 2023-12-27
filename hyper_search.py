@@ -213,6 +213,8 @@ def objective(trial):
     batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 200)
     wavelet_transform = trial.suggest_categorical("wavelet_transform", ["True", "False"])
+    wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db2", "db3", "db4", "sym2", "coif1", "bior1.3"])
+    decomposition_level = trial.suggest_int('decomposition_level', 1, 4)
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -228,7 +230,7 @@ def objective(trial):
     
     # Data prep
     if wavelet_transform == "True": 
-        X, y = create_dataset(scale_data(perform_wavelet_transform(data)), num_previous_intervals, 100)
+        X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level)), num_previous_intervals, 100)
     else: 
         X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
     
@@ -270,10 +272,10 @@ def objective(trial):
     return rmse
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-WT", load_if_exists=True, storage="mysql://sjp2dzd6vcm9nde1c4l9:pscale_pw_ARDwvUUTMqluIOtY2J1BzCQAwhS1kOMvjwoezIlLQz3@aws.connect.psdb.cloud/hyper-search")
+study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-2", load_if_exists=True, storage="mysql://sjp2dzd6vcm9nde1c4l9:pscale_pw_ARDwvUUTMqluIOtY2J1BzCQAwhS1kOMvjwoezIlLQz3@aws.connect.psdb.cloud/hyper-search")
 
 # Do the study
-study.optimize(objective, n_trials=100)  # Adjust the number of trials
+study.optimize(objective, n_trials=50)  # Adjust the number of trials
 
 # Get the best hyperparameters
 best_params = study.best_params

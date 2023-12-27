@@ -129,17 +129,17 @@ def scale_data(data):
     data_scaled = scaler.fit_transform(data)
     return data_scaled
 
-def perform_wavelet_transform(data):
+def perform_wavelet_transform(data, wavelet='db1', level=2):
     # Initialize an empty list to store the denoised features
     data_denoised_list = []
 
     # Apply wavelet transform to each feature separately
     for i in range(data.shape[1]):
-        coeffs = pywt.wavedec(data[:, i], wavelet='db1', level=2)
+        coeffs = pywt.wavedec(data[:, i], wavelet=wavelet, level=level)
         # Zero out the high-frequency components for denoising
         coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
         # Reconstruct the denoised signal
-        data_denoised = pywt.waverec(coeffs, 'db1')
+        data_denoised = pywt.waverec(coeffs, wavelet)
         # Append the denoised feature to the list
         data_denoised_list.append(data_denoised)
 

@@ -12,6 +12,11 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import pywt
+from dotenv import load_dotenv
+import os
+
+# Load the .env file
+load_dotenv()
 
 #Load the data from the pickle file
 with open('data/2y_data.pickle', 'rb') as file:
@@ -271,8 +276,11 @@ def objective(trial):
 
     return rmse
 
+
+database_url = os.environ.get('DATABASE_URL')
+
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-2", load_if_exists=True, storage="mysql://sjp2dzd6vcm9nde1c4l9:pscale_pw_ARDwvUUTMqluIOtY2J1BzCQAwhS1kOMvjwoezIlLQz3@aws.connect.psdb.cloud/hyper-search")
+study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-2", load_if_exists=True, storage=database_url)
 
 # Do the study
 study.optimize(objective, n_trials=50)  # Adjust the number of trials

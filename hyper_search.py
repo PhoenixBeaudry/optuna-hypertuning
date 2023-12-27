@@ -211,12 +211,12 @@ num_features = data.shape[1]
 
 # Optuna objective
 def objective(trial):
-    hidden_units = trial.suggest_int('hidden_units', 128, 2048)
+    hidden_units = trial.suggest_int('hidden_units', 128, 1024)
     num_layers = 1
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
     batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 200)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 150)
     wavelet_transform = trial.suggest_categorical("wavelet_transform", ["True", "False"])
     wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db2", "db3", "db4", "sym2", "coif1", "bior1.3"])
     decomposition_level = trial.suggest_int('decomposition_level', 1, 4)

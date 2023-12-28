@@ -209,82 +209,75 @@ def decaying_rmse_loss(y_true, y_pred):
 
 num_features = data.shape[1]
 
-# Optuna objective
-def objective(trial):
-    hidden_units = trial.suggest_int('hidden_units', 128, 1024)
-    num_layers = 1
-    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
-    learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
-    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 150)
-    wavelet_transform = trial.suggest_categorical("wavelet_transform", ["True", "False"])
-    wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db2", "db3", "db4", "sym2", "coif1", "bior1.3"])
-    decomposition_level = trial.suggest_int('decomposition_level', 1, 4)
+##### Add your hyperparameter options
+hidden_units = 197
+num_layers = 1
+dropout_rate = 0.0560328919515731
+learning_rate = 0.0003562087013486111
+batch_size = 512
+num_previous_intervals = 87
+wavelet_transform = "True"
+wavelet_type = "db1"
+decomposition_level = 4
 
-    # Create a model with the current trial's hyperparameters
-    model = Sequential()
-    for i in range(num_layers):
-        if i == 0:
-            model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
-        else:
-            model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
-        model.add(Dropout(dropout_rate))
-    model.add(Dense(100))
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-                  loss=decaying_rmse_loss)
-    
-    # Data prep
-    if wavelet_transform == "True": 
-        X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level)), num_previous_intervals, 100)
-    else: 
-        X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
-    
-    # Split into train and test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+# Create a model with the current trial's hyperparameters
+model = Sequential()
+for i in range(num_layers):
+    if i == 0:
+        model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
+    else:
+        model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
+    model.add(Dropout(dropout_rate))
+model.add(Dense(100))
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+                loss=decaying_rmse_loss)
 
-    # Early stopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
-    
-    # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
+# Data prep
+if wavelet_transform == "True": 
+    X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level)), num_previous_intervals, 100)
+else: 
+    X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
 
-    # Evaluate the model
-    predictions = model.predict(X_test)
-    # This is literally fucking stupid. How does ML work like this.
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
-    modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
-    # Place predictions into the first feature of this array
-    modified_predictions[:, :, 0] = predictions
-    # Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
-    modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
-    # Apply inverse_transform
-    original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
-    # Reshape back to original predictions shape, if needed
-    original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
-    modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
-    # Place y_test into the first feature of this array
-    modified_y_test[:, :, 0] = y_test
-    # Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
-    modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
-    # Apply inverse_transform
-    original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
-    # Reshape back to original y_test shape, if needed
-    # (Selecting only the first feature, assuming y_test corresponds to the first feature)
-    original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
-    rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
+# Split into train and test set
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
 
-    return rmse
+# Early stopping callback
+early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
 
+# Train the model
+model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
 
-database_url = os.environ.get('DATABASE_URL')
+# Save the scaler
+with open('trained_models/hyper_scaler.pkl', 'wb') as file:
+    pickle.dump(scaler, file)
 
-#Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-2", load_if_exists=True, storage=database_url)
+# Evaluate the model
+predictions = model.predict(X_test)
+# This is literally fucking stupid. How does ML work like this.
+# Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
+# Place predictions into the first feature of this array
+modified_predictions[:, :, 0] = predictions
+# Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
+modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
+# Apply inverse_transform
+original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
+# Reshape back to original predictions shape, if needed
+original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
+# Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
+# Place y_test into the first feature of this array
+modified_y_test[:, :, 0] = y_test
+# Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
+modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
+# Apply inverse_transform
+original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
+# Reshape back to original y_test shape, if needed
+# (Selecting only the first feature, assuming y_test corresponds to the first feature)
+original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
+rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
 
-# Do the study
-study.optimize(objective, n_trials=50)  # Adjust the number of trials
+print(f"Models RMSE: {rmse}")
 
-# Get the best hyperparameters
-best_params = study.best_params
-print("Best parameters:", best_params)
+# Save the trained model
+model.save('trained_models/hyper_model.h5')

@@ -7,3 +7,4 @@ PyWavelets
 python-dotenv
 matplotlib
 mysqlclient
+tensorflow_addons

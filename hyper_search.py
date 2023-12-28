@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import pywt
 from dotenv import load_dotenv
 import os
+import tensorflow_addons as tfa
 
 # Load the .env file
 load_dotenv()
@@ -220,6 +221,7 @@ def objective(trial):
     wavelet_transform = True
     wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db4"])
     decomposition_level = 4
+    optimizer_type = trial.suggest_categorical("optimizer", ["adam", "ranger"])
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -230,7 +232,21 @@ def objective(trial):
             model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
         model.add(Dropout(dropout_rate))
     model.add(Dense(100))
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+
+    if(optimizer_type == "adam"):
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    elif(optimizer_type == "ranger"):
+        radam = tfa.optimizers.RectifiedAdam(
+            learning_rate=learning_rate,
+            total_steps=10000,
+            warmup_proportion=0.1,
+            min_lr=1e-5,
+        )
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
+    else:
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+    model.compile(optimizer=optimizer,
                   loss=decaying_rmse_loss)
     
     # Data prep
@@ -243,7 +259,7 @@ def objective(trial):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
 
     # Early stopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
     
     # Train the model
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
@@ -280,7 +296,7 @@ def objective(trial):
 database_url = os.environ.get('DATABASE_URL')
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-3", load_if_exists=True, storage=database_url)
+study = optuna.create_study(direction='minimize', study_name="hyper-search-optimizer", load_if_exists=True, storage=database_url)
 
 # Do the study
 study.optimize(objective, n_trials=50)  # Adjust the number of trials

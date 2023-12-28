@@ -216,10 +216,10 @@ def objective(trial):
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
     batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 75, 150)
-    wavelet_transform = trial.suggest_categorical("wavelet_transform", ["True", "False"])
-    wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db2", "db3", "db4", "sym2", "coif1", "bior1.3"])
-    decomposition_level = trial.suggest_int('decomposition_level', 1, 4)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 50, 100)
+    wavelet_transform = True
+    wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db4"])
+    decomposition_level = 4
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -280,7 +280,7 @@ def objective(trial):
 database_url = os.environ.get('DATABASE_URL')
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-2", load_if_exists=True, storage=database_url)
+study = optuna.create_study(direction='minimize', study_name="hyper-search-WT-3", load_if_exists=True, storage=database_url)
 
 # Do the study
 study.optimize(objective, n_trials=50)  # Adjust the number of trials

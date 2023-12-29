@@ -201,9 +201,11 @@ num_features = data.shape[1]
 def objective(trial):
     #Layers
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
-    num_layers = 1
+    num_layers = trial.suggest_int('hidden_units', 1, 3)
+    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 3.0, step=0.25)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 50, 100)
+
     # Optimizer
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
     optimizer_type = trial.suggest_categorical("optimizer", ["adam", "ranger"])
@@ -212,12 +214,16 @@ def objective(trial):
     min_lr = trial.suggest_float("min_lr", 1e-6, 1e-4, log=True)
     sync_period = trial.suggest_int("sync_period", 5, 10)
     slow_step_size = trial.suggest_float("slow_step_size", 0.4, 0.6)
-    #Training
-    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
+
     # Wavelet
     wavelet_transform = True
     wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db4"])
     decomposition_level = 4
+
+    #Training
+    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
+
+    
     
 
     # Create a model with the current trial's hyperparameters
@@ -226,7 +232,7 @@ def objective(trial):
         if i == 0:
             model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
         else:
-            model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
+            model.add(LSTM(hidden_units*layer_multiplier*i, return_sequences=i < num_layers - 1))
         model.add(Dropout(dropout_rate))
     model.add(Dense(100))
 

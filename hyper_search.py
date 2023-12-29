@@ -93,7 +93,6 @@ def add_technical_indicators(df):
     df['MACD'] = exp1 - exp2
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     
-    df = df[['timestamps', 'high', 'low', 'close', 'volume']].copy()
     # Make sure the 'timestamps' column is a datetime type before applying the function
     df['timestamps'] = pd.to_datetime(df['timestamps'])
     df = add_daily_open_feature(df)
@@ -112,6 +111,8 @@ def add_technical_indicators(df):
 df = add_technical_indicators(data_df)
 # remove all NaN values
 df.dropna(inplace=True)
+df.drop('timestamps', axis=1, inplace=True)
+df.drop('date', axis=1, inplace=True)
 
 data  = df.values
 

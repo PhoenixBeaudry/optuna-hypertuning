@@ -223,9 +223,6 @@ def objective(trial):
     #Training
     batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
 
-    
-    
-
     # Create a model with the current trial's hyperparameters
     model = Sequential()
     for i in range(num_layers):
@@ -298,11 +295,7 @@ def objective(trial):
 database_url = os.environ.get('DATABASE_URL')
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="hyper-search-optimizer", load_if_exists=True, storage=database_url)
+study = optuna.create_study(direction='minimize', study_name="bigboy-search-1", load_if_exists=True, storage=database_url)
 
 # Do the study
-study.optimize(objective, n_trials=50)  # Adjust the number of trials
-
-# Get the best hyperparameters
-best_params = study.best_params
-print("Best parameters:", best_params)
+study.optimize(objective)  # Adjust the number of trials

@@ -28,6 +28,7 @@ data_structure[1],
 data_structure[2],
 data_structure[3],
 data_structure[4]]
+
 data_array = np.array(data_structure).T
 
 #Assuming the structure is [timestamps, close, high, low, volume]
@@ -36,7 +37,14 @@ close_prices = data_array[:, 1]
 high_prices = data_array[:, 2]
 low_prices = data_array[:, 3]
 volumes = data_array[:, 4]
+"""
+#Combine all features into a single array
+data_combined = np.column_stack((timestamps, close_prices, high_prices, low_prices, volumes))
 
+# Assuming data_array is your numpy array with columns in the order: timestamps, close, high, low, volume
+column_names = ['close', 'high', 'low', 'volume']
+data_df = pd.DataFrame(data_combined, columns=column_names)
+"""
 # Combine all features into a DataFrame
 data_df = pd.DataFrame({
     'timestamps': timestamps,
@@ -49,6 +57,18 @@ data_df = pd.DataFrame({
 # Technical indicator helper functions
 def upper_shadow(df): return df['high'] - np.maximum(df['close'], df['open'])
 def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
+def add_daily_open_feature(df):
+    # Convert timestamps to dates if necessary (assuming 'timestamps' is in datetime format)
+    df['date'] = df['timestamps'].dt.date
+    # Group by date and take the last 'close' for each day
+    daily_open_prices = df.groupby('date')['close'].last()
+    # Shift the daily_open_prices to use the last 'close' as the 'open' for the following day.
+    daily_open_prices = daily_open_prices.shift(1)
+    # Map the daily_open_prices to each corresponding timestamps
+    df['open'] = df['date'].map(daily_open_prices)
+    # Handle the 'open' for the first day in the dataset
+    df['open'].fillna(method='bfill', inplace=True)
+    return df
 
 # Create more advanced technical indicators
 def add_technical_indicators(df):
@@ -73,18 +93,19 @@ def add_technical_indicators(df):
     df['MACD'] = exp1 - exp2
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     
-    df_feat = df[['timestamps', 'high', 'low', 'close', 'volume']].copy()
+    df = df[['timestamps', 'high', 'low', 'close', 'volume']].copy()
     # Make sure the 'timestamps' column is a datetime type before applying the function
-    df_feat['timestamps'] = pd.to_datetime(df_feat['timestamps'])
-    df_feat['upper_Shadow'] = upper_shadow(df_feat)
-    df_feat['lower_Shadow'] = lower_shadow(df_feat)
-    df_feat['high_div_low'] = df_feat["high"] / df_feat["low"]
-    df_feat['trade'] = df_feat['close'] - df_feat['open']
-    df_feat['shadow1'] = df_feat['trade'] / df_feat['volume']
-    df_feat['shadow3'] = df_feat['upper_Shadow'] / df_feat['volume']
-    df_feat['shadow5'] = df_feat['lower_Shadow'] / df_feat['volume']
-    df_feat['mean1'] = (df_feat['shadow5'] + df_feat['shadow3']) / 2
-    df_feat['mean2'] = (df_feat['shadow1'] + df_feat['volume']) / 2
+    df['timestamps'] = pd.to_datetime(df['timestamps'])
+    df = add_daily_open_feature(df)
+    df['upper_Shadow'] = upper_shadow(df)
+    df['lower_Shadow'] = lower_shadow(df)
+    df["high_div_low"] = df["high"] / df["low"]
+    df['trade'] = df['close'] - df['open']
+    df['shadow1'] = df['trade'] / df['volume']
+    df['shadow3'] = df['upper_Shadow'] / df['volume']
+    df['shadow5'] = df['lower_Shadow'] / df['volume']
+    df['mean1'] = (df['shadow5'] + df['shadow3']) / 2
+    df['mean2'] = (df['shadow1'] + df['volume']) / 2
 
     return df
 

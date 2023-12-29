@@ -246,8 +246,7 @@ def objective(trial):
     else:
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    model.compile(optimizer=optimizer,
-                  loss=decaying_rmse_loss)
+    model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
     
     # Data prep
     if wavelet_transform == "True": 

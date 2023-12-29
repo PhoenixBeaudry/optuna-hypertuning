@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import pywt
 from dotenv import load_dotenv
 import os
+import tensorflow_addons as tfa
 
 # Load the .env file
 load_dotenv()
@@ -210,15 +211,29 @@ def decaying_rmse_loss(y_true, y_pred):
 num_features = data.shape[1]
 
 ##### Add your hyperparameter options
-hidden_units = 197
+hidden_units = 516
 num_layers = 1
-dropout_rate = 0.0560328919515731
-learning_rate = 0.0003562087013486111
-batch_size = 512
-num_previous_intervals = 87
+dropout_rate = 0.07395519796324444
+learning_rate = 0.0046387793600377
+batch_size = 256
+num_previous_intervals = 100
 wavelet_transform = "True"
-wavelet_type = "db1"
+wavelet_type = "db4"
 decomposition_level = 4
+optimizer_type = "ranger"
+
+if(optimizer_type == "adam"):
+    optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+elif(optimizer_type == "ranger"):
+    radam = tfa.optimizers.RectifiedAdam(
+        learning_rate=learning_rate,
+        total_steps=10000,
+        warmup_proportion=0.1,
+        min_lr=1e-5,
+    )
+    optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
+else:
+    optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
 # Create a model with the current trial's hyperparameters
 model = Sequential()
@@ -229,8 +244,7 @@ for i in range(num_layers):
         model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
     model.add(Dropout(dropout_rate))
 model.add(Dense(100))
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-                loss=decaying_rmse_loss)
+model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
 # Data prep
 if wavelet_transform == "True": 
@@ -242,7 +256,7 @@ else:
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
 
 # Early stopping callback
-early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
 
 # Train the model
 model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])

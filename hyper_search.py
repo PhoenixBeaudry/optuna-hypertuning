@@ -202,8 +202,8 @@ num_features = data.shape[1]
 def objective(trial):
     #Layers
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
-    num_layers = trial.suggest_int('num_layers', 1, 3)
-    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 3.0, step=0.25)
+    num_layers = trial.suggest_int('num_layers', 1, 2)
+    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 50, 100)
 

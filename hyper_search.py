@@ -9,6 +9,7 @@ from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import pywt
@@ -202,10 +203,13 @@ num_features = data.shape[1]
 def objective(trial):
     #Layers
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
-    num_layers = trial.suggest_int('num_layers', 1, 2)
-    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
+    num_layers = 1 #trial.suggest_int('num_layers', 1, 2)
+    layer_multiplier = 1 #trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
+    # Elastic Net Regularization hyperparameters
+    l1_reg = trial.suggest_float('l1_reg', 1e-5, 1e-2, log=True)
+    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-2, log=True)
 
     # Optimizer
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
@@ -222,17 +226,20 @@ def objective(trial):
     decomposition_level = 4
 
     #Training
-    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
+    batch_size = trial.suggest_int('batch_size', 64, 1024, step=128)
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
     for i in range(num_layers):
         if i == 0:
-            model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
+            model.add(LSTM(hidden_units, return_sequences=num_layers > 1,
+                       input_shape=(num_previous_intervals, num_features),
+                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net regularization
         else:
-            model.add(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1))
+            model.add(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1,
+                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net regularization
         model.add(Dropout(dropout_rate))
-    model.add(Dense(100))
+    model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net 
 
     if(optimizer_type == "adam"):
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
@@ -296,7 +303,7 @@ def objective(trial):
 database_url = os.environ.get('DATABASE_URL')
 
 #Create Study
-study = optuna.create_study(direction='minimize', study_name="bigboy-search-1", load_if_exists=True, storage=database_url)
+study = optuna.create_study(direction='minimize', study_name="regularization", load_if_exists=True, storage=database_url)
 
 # Do the study
 study.optimize(objective)  # Adjust the number of trials

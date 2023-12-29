@@ -67,7 +67,7 @@ def add_daily_open_feature(df):
     # Map the daily_open_prices to each corresponding timestamps
     df['open'] = df['date'].map(daily_open_prices)
     # Handle the 'open' for the first day in the dataset
-    df['open'].fillna(method='bfill', inplace=True)
+    df['open'].bfill(inplace=True)
     return df
 
 # Create more advanced technical indicators
@@ -204,12 +204,12 @@ def objective(trial):
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
     num_layers = trial.suggest_int('num_layers', 1, 2)
     layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
-    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 50, 100)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
 
     # Optimizer
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
-    optimizer_type = trial.suggest_categorical("optimizer", ["adam", "ranger"])
+    optimizer_type = "ranger"
     total_steps = trial.suggest_int("total_steps", 5000, 20000)
     warmup_proportion = trial.suggest_float("warmup_proportion", 0.05, 0.2)
     min_lr = trial.suggest_float("min_lr", 1e-6, 1e-4, log=True)
@@ -218,7 +218,7 @@ def objective(trial):
 
     # Wavelet
     wavelet_transform = True
-    wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db4"])
+    wavelet_type = "db4"
     decomposition_level = 4
 
     #Training

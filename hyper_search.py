@@ -199,16 +199,26 @@ num_features = data.shape[1]
 
 # Optuna objective
 def objective(trial):
+    #Layers
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
     num_layers = 1
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.1)
-    learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
-    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 50, 100)
+    # Optimizer
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
+    optimizer_type = trial.suggest_categorical("optimizer", ["adam", "ranger"])
+    total_steps = trial.suggest_int("total_steps", 5000, 20000)
+    warmup_proportion = trial.suggest_float("warmup_proportion", 0.05, 0.2)
+    min_lr = trial.suggest_float("min_lr", 1e-6, 1e-4, log=True)
+    sync_period = trial.suggest_int("sync_period", 5, 10)
+    slow_step_size = trial.suggest_float("slow_step_size", 0.4, 0.6)
+    #Training
+    batch_size = trial.suggest_int('batch_size', 128, 1024, step=128)
+    # Wavelet
     wavelet_transform = True
     wavelet_type = trial.suggest_categorical("wavelet_type", ["db1", "db4"])
     decomposition_level = 4
-    optimizer_type = trial.suggest_categorical("optimizer", ["adam", "ranger"])
+    
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -225,11 +235,11 @@ def objective(trial):
     elif(optimizer_type == "ranger"):
         radam = tfa.optimizers.RectifiedAdam(
             learning_rate=learning_rate,
-            total_steps=10000,
-            warmup_proportion=0.1,
-            min_lr=1e-5,
+            total_steps=total_steps,
+            warmup_proportion=warmup_proportion,
+            min_lr=min_lr,
         )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
     else:
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 

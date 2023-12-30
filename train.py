@@ -9,6 +9,7 @@ from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import pywt
@@ -60,19 +61,14 @@ def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
 def add_daily_open_feature(df):
     # Convert timestamps to dates if necessary (assuming 'timestamps' is in datetime format)
     df['date'] = df['timestamps'].dt.date
-    
     # Group by date and take the last 'close' for each day
     daily_open_prices = df.groupby('date')['close'].last()
-    
     # Shift the daily_open_prices to use the last 'close' as the 'open' for the following day.
     daily_open_prices = daily_open_prices.shift(1)
-    
     # Map the daily_open_prices to each corresponding timestamps
     df['open'] = df['date'].map(daily_open_prices)
-    
     # Handle the 'open' for the first day in the dataset
-    df['open'].fillna(method='bfill', inplace=True)
-
+    df['open'].bfill(inplace=True)
     return df
 
 # Create more advanced technical indicators
@@ -98,35 +94,28 @@ def add_technical_indicators(df):
     df['MACD'] = exp1 - exp2
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     
-    df_feat = df[['timestamps', 'high', 'low', 'close', 'volume']].copy()
     # Make sure the 'timestamps' column is a datetime type before applying the function
-    df_feat['timestamps'] = pd.to_datetime(df_feat['timestamps'])
-    df_feat = add_daily_open_feature(df_feat)
-    
-    df_feat['upper_Shadow'] = upper_shadow(df_feat)
-    df_feat['lower_Shadow'] = lower_shadow(df_feat)
-    df_feat["high_div_low"] = df_feat["high"] / df_feat["low"]
-    df_feat['trade'] = df_feat['close'] - df_feat['open']
-    #df_feat['gtrade'] = df_feat['trade'] / df_feat['Count']
-    df_feat['shadow1'] = df_feat['trade'] / df_feat['volume']
-    df_feat['shadow3'] = df_feat['upper_Shadow'] / df_feat['volume']
-    df_feat['shadow5'] = df_feat['lower_Shadow'] / df_feat['volume']
-    #df_feat['diff1'] = df_feat['volume'] - df_feat['Count']
-    df_feat['mean1'] = (df_feat['shadow5'] + df_feat['shadow3']) / 2
-    df_feat['mean2'] = (df_feat['shadow1'] + df_feat['volume']) / 2
-    #df_feat['mean3'] = (df_feat['trade'] + df_feat['gtrade']) / 2
-    #df_feat['mean4'] = (df_feat['diff1'] + df_feat['upper_Shadow']) / 2
-    #df_feat['mean5'] = (df_feat['diff1'] + df_feat['lower_Shadow']) / 2
-    
+    df['timestamps'] = pd.to_datetime(df['timestamps'])
+    df = add_daily_open_feature(df)
+    df['upper_Shadow'] = upper_shadow(df)
+    df['lower_Shadow'] = lower_shadow(df)
+    df["high_div_low"] = df["high"] / df["low"]
+    df['trade'] = df['close'] - df['open']
+    df['shadow1'] = df['trade'] / df['volume']
+    df['shadow3'] = df['upper_Shadow'] / df['volume']
+    df['shadow5'] = df['lower_Shadow'] / df['volume']
+    df['mean1'] = (df['shadow5'] + df['shadow3']) / 2
+    df['mean2'] = (df['shadow1'] + df['volume']) / 2
+
     return df
 
 df = add_technical_indicators(data_df)
 # remove all NaN values
 df.dropna(inplace=True)
+df.drop('timestamps', axis=1, inplace=True)
+df.drop('date', axis=1, inplace=True)
 
-final_data_df = df[['close', 'high', 'low', 'volume', 'SMA_5', 'SMA_15',
-       'EMA_5', 'EMA_15', 'RSI', 'MACD', 'Signal_Line']]
-data  = final_data_df.values
+data  = df.values
 
 scaler = MinMaxScaler(feature_range=(0, 1))
 
@@ -211,16 +200,32 @@ def decaying_rmse_loss(y_true, y_pred):
 num_features = data.shape[1]
 
 ##### Add your hyperparameter options
-hidden_units = 516
+#Layers
+hidden_units = 947
 num_layers = 1
-dropout_rate = 0.07395519796324444
-learning_rate = 0.0046387793600377
-batch_size = 256
-num_previous_intervals = 100
-wavelet_transform = "True"
+layer_multiplier = 1
+dropout_rate = 0.1352979618569746
+num_previous_intervals = 57
+# Elastic Net Regularization hyperparameters
+l1_reg = 1.2669911888395433e-05
+l2_reg = 1.0003319428243117e-05
+
+# Optimizer
+learning_rate = 0.002546037429204024
+optimizer_type = "ranger"
+total_steps = 5398
+warmup_proportion = 0.17004444961347331
+min_lr = 1.751520128062939e-06
+sync_period = 6
+slow_step_size = 0.5859028778720838
+
+# Wavelet
+wavelet_transform = True
 wavelet_type = "db4"
 decomposition_level = 4
-optimizer_type = "ranger"
+
+#Training
+batch_size = 960
 
 if(optimizer_type == "adam"):
     optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)

@@ -38,14 +38,7 @@ close_prices = data_array[:, 1]
 high_prices = data_array[:, 2]
 low_prices = data_array[:, 3]
 volumes = data_array[:, 4]
-"""
-#Combine all features into a single array
-data_combined = np.column_stack((timestamps, close_prices, high_prices, low_prices, volumes))
 
-# Assuming data_array is your numpy array with columns in the order: timestamps, close, high, low, volume
-column_names = ['close', 'high', 'low', 'volume']
-data_df = pd.DataFrame(data_combined, columns=column_names)
-"""
 # Combine all features into a DataFrame
 data_df = pd.DataFrame({
     'timestamps': timestamps,

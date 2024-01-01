@@ -206,6 +206,7 @@ num_layers = 1
 layer_multiplier = 1
 dropout_rate = 0.1352979618569746
 num_previous_intervals = 57
+
 # Elastic Net Regularization hyperparameters
 l1_reg = 1.2669911888395433e-05
 l2_reg = 1.0003319428243117e-05
@@ -220,7 +221,7 @@ sync_period = 6
 slow_step_size = 0.5859028778720838
 
 # Wavelet
-wavelet_transform = True
+wavelet_transform = "True"
 wavelet_type = "db4"
 decomposition_level = 4
 

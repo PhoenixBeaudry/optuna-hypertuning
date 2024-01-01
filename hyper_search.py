@@ -189,7 +189,6 @@ def decaying_rmse_loss(y_true, y_pred):
 
     return weighted_rmse
 
-
 num_features = data.shape[1]
 
 # Optuna objective
@@ -214,7 +213,7 @@ def objective(trial):
     slow_step_size = trial.suggest_float("slow_step_size", 0.4, 0.6)
 
     # Wavelet
-    wavelet_transform = True
+    wavelet_transform = "True"
     wavelet_type = "db4"
     decomposition_level = 4
 

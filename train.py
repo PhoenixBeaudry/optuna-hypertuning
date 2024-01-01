@@ -267,9 +267,20 @@ early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weig
 # Train the model
 model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
 
-# Save the scaler
-with open('trained_models/hyper_scaler.pkl', 'wb') as file:
-    pickle.dump(scaler, file)
+def save_scaler_as_pickle(scaler):
+    directory = 'trained_models'
+    filename = 'hyper_scaler.pkl'
+    filepath = os.path.join(directory, filename)
+
+    # Make sure the directory exists
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
+    # Save the scaler
+    with open(filepath, 'wb') as file:
+        pickle.dump(scaler, file)
+
+save_scaler_as_pickle(scaler)
 
 # Evaluate the model
 predictions = model.predict(X_test)

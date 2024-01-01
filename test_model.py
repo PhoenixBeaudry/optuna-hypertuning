@@ -4,18 +4,11 @@ import pandas as pd
 import pickle
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.regularizers import l1_l2
-from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
-
 
 # Load our model
 model = tf.keras.models.load_model(f'trained_models/hyper_model.h5', compile=False)

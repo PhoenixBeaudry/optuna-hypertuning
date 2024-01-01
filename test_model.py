@@ -9,6 +9,7 @@ import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
+from train import upper_shadow, lower_shadow, add_daily_open_feature, add_technical_indicators, scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss
 
 # Load our model
 model = tf.keras.models.load_model(f'trained_models/hyper_model.h5', compile=False)
@@ -45,59 +46,7 @@ data_df = pd.DataFrame({
     'volume': volumes
 })
 
-# Technical indicator helper functions
-def upper_shadow(df): return df['high'] - np.maximum(df['close'], df['open'])
-def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
-def add_daily_open_feature(df):
-    # Convert timestamps to dates if necessary (assuming 'timestamps' is in datetime format)
-    df['date'] = df['timestamps'].dt.date
-    # Group by date and take the last 'close' for each day
-    daily_open_prices = df.groupby('date')['close'].last()
-    # Shift the daily_open_prices to use the last 'close' as the 'open' for the following day.
-    daily_open_prices = daily_open_prices.shift(1)
-    # Map the daily_open_prices to each corresponding timestamps
-    df['open'] = df['date'].map(daily_open_prices)
-    # Handle the 'open' for the first day in the dataset
-    df['open'].bfill(inplace=True)
-    return df
 
-# Create more advanced technical indicators
-def add_technical_indicators(df):
-    # Simple Moving Average
-    df['SMA_5'] = df['close'].rolling(window=5).mean()
-    df['SMA_15'] = df['close'].rolling(window=15).mean()
-
-    # Exponential Moving Average
-    df['EMA_5'] = df['close'].ewm(span=5, adjust=False).mean()
-    df['EMA_15'] = df['close'].ewm(span=15, adjust=False).mean()
-
-    # Relative Strength Index
-    delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    RS = gain / loss
-    df['RSI'] = 100 - (100 / (1 + RS))
-
-    # Moving Average Convergence Divergence
-    exp1 = df['close'].ewm(span=12, adjust=False).mean()
-    exp2 = df['close'].ewm(span=26, adjust=False).mean()
-    df['MACD'] = exp1 - exp2
-    df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    
-    # Make sure the 'timestamps' column is a datetime type before applying the function
-    df['timestamps'] = pd.to_datetime(df['timestamps'])
-    df = add_daily_open_feature(df)
-    df['upper_Shadow'] = upper_shadow(df)
-    df['lower_Shadow'] = lower_shadow(df)
-    df["high_div_low"] = df["high"] / df["low"]
-    df['trade'] = df['close'] - df['open']
-    df['shadow1'] = df['trade'] / df['volume']
-    df['shadow3'] = df['upper_Shadow'] / df['volume']
-    df['shadow5'] = df['lower_Shadow'] / df['volume']
-    df['mean1'] = (df['shadow5'] + df['shadow3']) / 2
-    df['mean2'] = (df['shadow1'] + df['volume']) / 2
-
-    return df
 
 df = add_technical_indicators(data_df)
 # remove all NaN values
@@ -109,28 +58,6 @@ data  = df.values
 
 num_features = data.shape[1]
 
-# Function to scale dataset
-def scale_data(data):
-    data_scaled = scaler.fit_transform(data)
-    return data_scaled
-
-def perform_wavelet_transform(data, wavelet='db4', level=4):
-    # Initialize an empty list to store the denoised features
-    data_denoised_list = []
-
-    # Apply wavelet transform to each feature separately
-    for i in range(data.shape[1]):
-        coeffs = pywt.wavedec(data[:, i], wavelet=wavelet, level=level)
-        # Zero out the high-frequency components for denoising
-        coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
-        # Reconstruct the denoised signal
-        data_denoised = pywt.waverec(coeffs, wavelet)
-        # Append the denoised feature to the list
-        data_denoised_list.append(data_denoised)
-
-    # Combine the denoised features back into a single array
-    data_denoised_combined = np.column_stack(data_denoised_list)
-    return data_denoised_combined
 
 wavelet_type = "db4"
 decomposition_level = 4

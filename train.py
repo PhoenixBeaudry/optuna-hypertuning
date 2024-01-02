@@ -1,17 +1,14 @@
 # Imports
 import numpy as np
 import pandas as pd
-import optuna
 import pickle
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 import pywt
 from dotenv import load_dotenv
 import os
@@ -19,13 +16,12 @@ import tensorflow_addons as tfa
 from helper_functions import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
 
+
 if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
     df, data, num_features = get_data('data', '2y_data.pickle')
-
-    scaler = MinMaxScaler(feature_range=(0, 1))
 
     ##### Add your hyperparameter options
     #Layers
@@ -49,7 +45,7 @@ if __name__ == "__main__":
     slow_step_size = 0.5859028778720838
 
     # Wavelet
-    wavelet_transform = "True"
+    wavelet_transform = "False"
     wavelet_type = "db4"
     decomposition_level = 4
 
@@ -77,17 +73,36 @@ if __name__ == "__main__":
         else:
             model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
         model.add(Dropout(dropout_rate))
-    model.add(Dense(100))
+    model.add(Dense(100)) # activation='linear'
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
-    # Data prep
-    if wavelet_transform == "True": 
-        X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level), scaler), num_previous_intervals, 100)
-    else: 
-        X, y = create_dataset(scale_data(data, scaler), num_previous_intervals, 100)
 
-    # Split into train and test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+    # Assume 'df' is your full dataset
+
+    
+
+    # Step 1: Split the raw data into training and testing sets
+    df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
+
+    # Step 2: Apply the wavelet transform to the training and testing data independently
+    if wavelet_transform == "True":
+        df_train = perform_wavelet_transform(df_train, wavelet=wavelet_type, level=decomposition_level)
+        df_test = perform_wavelet_transform(df_test, wavelet=wavelet_type, level=decomposition_level)
+
+    # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    #scaler = MinMaxScaler()
+    scaler = scaler.fit(df_train)
+
+    # Step 4: Scale both the training and testing data using the fitted scaler
+    df_train_scaled = scaler.transform(df_train)
+    df_test_scaled = scaler.transform(df_test)
+
+    # Split the data into X,y sets
+    X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
+    X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
+
+
 
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
@@ -124,6 +139,8 @@ if __name__ == "__main__":
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
 
     print(f"Models RMSE: {rmse}")
+
+    print(original_scale_predictions)
 
     # Save the trained model
     model.save('trained_models/hyper_model.h5')

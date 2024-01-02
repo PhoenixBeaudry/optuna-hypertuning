@@ -13,7 +13,7 @@ import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
-from helper_functions import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
+from helper_functions import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, save_scaler_as_pickle
 
 
 

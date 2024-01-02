@@ -17,47 +17,86 @@ from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
 
-# Load the .env file
-load_dotenv()
 
-#Load the data from the pickle file
-with open('data/2y_data.pickle', 'rb') as file:
-    data_structure = pickle.load(file)
+def get_data_struct_from_pickle(directory, filename):
+    filepath = os.path.join(directory, filename)
 
-data_structure = [data_structure[0],
-data_structure[1],
-data_structure[2],
-data_structure[3],
-data_structure[4]]
+    #Load the data from the pickle file
+    with open(filepath, 'rb') as file:
+        data_structure = pickle.load(file)
 
-data_array = np.array(data_structure).T
+    data_structure = [data_structure[0],
+    data_structure[1],
+    data_structure[2],
+    data_structure[3],
+    data_structure[4]]
 
-#Assuming the structure is [timestamps, close, high, low, volume]
-timestamps = pd.to_datetime(data_array[:, 0], unit='ms')
-close_prices = data_array[:, 1]
-high_prices = data_array[:, 2]
-low_prices = data_array[:, 3]
-volumes = data_array[:, 4]
+    return data_structure
+
+
+def data_struct_to_data_frame(data_structure):
+    data_array = np.array(data_structure).T
+
+    #Assuming the structure is [timestamps, close, high, low, volume]
+    timestamps = pd.to_datetime(data_array[:, 0], unit='ms')
+    close_prices = data_array[:, 1]
+    high_prices = data_array[:, 2]
+    low_prices = data_array[:, 3]
+    volumes = data_array[:, 4]
+
+    # Combine all features into a DataFrame
+    data_df = pd.DataFrame({
+        'timestamps': timestamps,
+        'close': close_prices,
+        'high': high_prices,
+        'low': low_prices,
+        'volume': volumes
+    })
+
+    return data_df
+
+
+def clean_data(df):
+    # remove all NaN values
+    df.dropna(inplace=True)
+    df.drop('timestamps', axis=1, inplace=True)
+    df.drop('date', axis=1, inplace=True)
+
+    return df
+
+
 """
-#Combine all features into a single array
-data_combined = np.column_stack((timestamps, close_prices, high_prices, low_prices, volumes))
-
-# Assuming data_array is your numpy array with columns in the order: timestamps, close, high, low, volume
-column_names = ['close', 'high', 'low', 'volume']
-data_df = pd.DataFrame(data_combined, columns=column_names)
+Take a raw data_structure, transform it to a data frame, add features, and clean it
 """
-# Combine all features into a DataFrame
-data_df = pd.DataFrame({
-    'timestamps': timestamps,
-    'close': close_prices,
-    'high': high_prices,
-    'low': low_prices,
-    'volume': volumes
-})
+def data_pipeline(data_structure):
+    data_df = data_struct_to_data_frame(data_structure)
+    
+    df = add_technical_indicators(data_df)
+    
+    df = clean_data(df)
+
+    data = df.values    
+
+    num_features = data.shape[1]
+
+    return df, data, num_features
+
+
+def get_data(directory = 'data', filename = '2y_data.pickle'):
+    data_structure = get_data_struct_from_pickle(directory, filename)
+
+    df, data, num_features = data_pipeline(data_structure)
+
+    return df, data, num_features
+
 
 # Technical indicator helper functions
 def upper_shadow(df): return df['high'] - np.maximum(df['close'], df['open'])
+
+
 def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
+
+
 def add_daily_open_feature(df):
     # Convert timestamps to dates if necessary (assuming 'timestamps' is in datetime format)
     df['date'] = df['timestamps'].dt.date
@@ -70,6 +109,7 @@ def add_daily_open_feature(df):
     # Handle the 'open' for the first day in the dataset
     df['open'].bfill(inplace=True)
     return df
+
 
 # Create more advanced technical indicators
 def add_technical_indicators(df):
@@ -109,20 +149,12 @@ def add_technical_indicators(df):
 
     return df
 
-df = add_technical_indicators(data_df)
-# remove all NaN values
-df.dropna(inplace=True)
-df.drop('timestamps', axis=1, inplace=True)
-df.drop('date', axis=1, inplace=True)
-
-data  = df.values
-
-scaler = MinMaxScaler(feature_range=(0, 1))
 
 # Function to scale dataset
-def scale_data(data):
+def scale_data(data, scaler):
     data_scaled = scaler.fit_transform(data)
     return data_scaled
+
 
 def perform_wavelet_transform(data, wavelet='db1', level=2):
     # Initialize an empty list to store the denoised features
@@ -142,6 +174,7 @@ def perform_wavelet_transform(data, wavelet='db1', level=2):
     data_denoised_combined = np.column_stack(data_denoised_list)
     return data_denoised_combined
 
+
 # Function to create dataset
 def create_dataset(data, input_time_steps=100, future_intervals=100):
     X, y = [], []
@@ -149,6 +182,7 @@ def create_dataset(data, input_time_steps=100, future_intervals=100):
         X.append(data[i:(i + input_time_steps), :])
         y.append(data[(i + input_time_steps):(i + input_time_steps + future_intervals), 0])
     return np.array(X), np.array(y)
+
 
 # Scoring function for model
 def calculate_weighted_rmse(predictions: np, actual: np) -> float:
@@ -175,6 +209,7 @@ def calculate_weighted_rmse(predictions: np, actual: np) -> float:
     
     return mean_rmse
 
+
 # Objective function to be optimized
 def decaying_rmse_loss(y_true, y_pred):
     k = 0.001  # decay rate, adjust as needed
@@ -197,107 +232,134 @@ def decaying_rmse_loss(y_true, y_pred):
     return weighted_rmse
 
 
-num_features = data.shape[1]
+def save_scaler_as_pickle(scaler):
+    directory = 'trained_models'
+    filename = 'hyper_scaler.pkl'
+    filepath = os.path.join(directory, filename)
 
-##### Add your hyperparameter options
-#Layers
-hidden_units = 947
-num_layers = 1
-layer_multiplier = 1
-dropout_rate = 0.1352979618569746
-num_previous_intervals = 57
+    # Make sure the directory exists
+    if not os.path.exists(directory):
+        os.mkdir(directory)
 
-# Elastic Net Regularization hyperparameters
-l1_reg = 1.2669911888395433e-05
-l2_reg = 1.0003319428243117e-05
+    # Save the scaler
+    with open(filepath, 'wb') as file:
+        pickle.dump(scaler, file)
 
-# Optimizer
-learning_rate = 0.002546037429204024
-optimizer_type = "ranger"
-total_steps = 5398
-warmup_proportion = 0.17004444961347331
-min_lr = 1.751520128062939e-06
-sync_period = 6
-slow_step_size = 0.5859028778720838
 
-# Wavelet
-wavelet_transform = "True"
-wavelet_type = "db4"
-decomposition_level = 4
+def load_scaler_from_pickle(directory = 'trained_models', filename = 'hyper_scaler.pkl'):
+    filepath = os.path.join(directory, filename)
 
-#Training
-batch_size = 960
+    with open(filepath, 'rb') as file:
+        scaler = pickle.load(file)
+    
+    return scaler
 
-if(optimizer_type == "adam"):
-    optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
-elif(optimizer_type == "ranger"):
-    radam = tfa.optimizers.RectifiedAdam(
-        learning_rate=learning_rate,
-        total_steps=10000,
-        warmup_proportion=0.1,
-        min_lr=1e-5,
-    )
-    optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
-else:
-    optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-# Create a model with the current trial's hyperparameters
-model = Sequential()
-for i in range(num_layers):
-    if i == 0:
-        model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
+if __name__ == "__main__":
+    # Load the .env file
+    load_dotenv()
+
+    df, data, num_features = get_data('data', '2y_data.pickle')
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
+
+    ##### Add your hyperparameter options
+    #Layers
+    hidden_units = 947
+    num_layers = 1
+    layer_multiplier = 1
+    dropout_rate = 0.1352979618569746
+    num_previous_intervals = 57
+
+    # Elastic Net Regularization hyperparameters
+    l1_reg = 1.2669911888395433e-05
+    l2_reg = 1.0003319428243117e-05
+
+    # Optimizer
+    learning_rate = 0.002546037429204024
+    optimizer_type = "ranger"
+    total_steps = 5398
+    warmup_proportion = 0.17004444961347331
+    min_lr = 1.751520128062939e-06
+    sync_period = 6
+    slow_step_size = 0.5859028778720838
+
+    # Wavelet
+    wavelet_transform = "True"
+    wavelet_type = "db4"
+    decomposition_level = 4
+
+    #Training
+    batch_size = 960
+
+    if(optimizer_type == "adam"):
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    elif(optimizer_type == "ranger"):
+        radam = tfa.optimizers.RectifiedAdam(
+            learning_rate=learning_rate,
+            total_steps=10000,
+            warmup_proportion=0.1,
+            min_lr=1e-5,
+        )
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
     else:
-        model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
-    model.add(Dropout(dropout_rate))
-model.add(Dense(100))
-model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-# Data prep
-if wavelet_transform == "True": 
-    X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level)), num_previous_intervals, 100)
-else: 
-    X, y = create_dataset(scale_data(data), num_previous_intervals, 100)
+    # Create a model with the current trial's hyperparameters
+    model = Sequential()
+    for i in range(num_layers):
+        if i == 0:
+            model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features)))
+        else:
+            model.add(LSTM(hidden_units, return_sequences=i < num_layers - 1))
+        model.add(Dropout(dropout_rate))
+    model.add(Dense(100))
+    model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
-# Split into train and test set
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+    # Data prep
+    if wavelet_transform == "True": 
+        X, y = create_dataset(scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level), scaler), num_previous_intervals, 100)
+    else: 
+        X, y = create_dataset(scale_data(data, scaler), num_previous_intervals, 100)
 
-# Early stopping callback
-early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
+    # Split into train and test set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
 
-# Train the model
-model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
+    # Early stopping callback
+    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
 
-# Save the scaler
-with open('trained_models/hyper_scaler.pkl', 'wb') as file:
-    pickle.dump(scaler, file)
+    # Train the model
+    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
 
-# Evaluate the model
-predictions = model.predict(X_test)
-# This is literally fucking stupid. How does ML work like this.
-# Create a zero-filled array with the same number of samples and timesteps, but with 5 features
-modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
-# Place predictions into the first feature of this array
-modified_predictions[:, :, 0] = predictions
-# Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
-modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
-# Apply inverse_transform
-original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
-# Reshape back to original predictions shape, if needed
-original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
-# Create a zero-filled array with the same number of samples and timesteps, but with 5 features
-modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
-# Place y_test into the first feature of this array
-modified_y_test[:, :, 0] = y_test
-# Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
-modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
-# Apply inverse_transform
-original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
-# Reshape back to original y_test shape, if needed
-# (Selecting only the first feature, assuming y_test corresponds to the first feature)
-original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
-rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
+    save_scaler_as_pickle(scaler)
 
-print(f"Models RMSE: {rmse}")
+    # Evaluate the model
+    predictions = model.predict(X_test)
+    # This is literally fucking stupid. How does ML work like this.
+    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
+    # Place predictions into the first feature of this array
+    modified_predictions[:, :, 0] = predictions
+    # Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
+    modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
+    # Apply inverse_transform
+    original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
+    # Reshape back to original predictions shape, if needed
+    original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
+    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
+    # Place y_test into the first feature of this array
+    modified_y_test[:, :, 0] = y_test
+    # Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
+    modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
+    # Apply inverse_transform
+    original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
+    # Reshape back to original y_test shape, if needed
+    # (Selecting only the first feature, assuming y_test corresponds to the first feature)
+    original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
+    rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
 
-# Save the trained model
-model.save('trained_models/hyper_model.h5')
+    print(f"Models RMSE: {rmse}")
+
+    # Save the trained model
+    model.save('trained_models/hyper_model.h5')

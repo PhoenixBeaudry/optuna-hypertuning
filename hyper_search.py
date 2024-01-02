@@ -83,8 +83,26 @@ def objective(trial):
     else: 
         X, y = create_dataset(scale_data(data, scaler), num_previous_intervals, 100)
     
-    # Split into train and test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
+    # Step 1: Split the raw data into training and testing sets
+    df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
+
+    # Step 2: Apply the wavelet transform to the training and testing data independently
+    if wavelet_transform == "True":
+        df_train = perform_wavelet_transform(df_train, wavelet=wavelet_type, level=decomposition_level)
+        df_test = perform_wavelet_transform(df_test, wavelet=wavelet_type, level=decomposition_level)
+
+    # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    #scaler = MinMaxScaler()
+    scaler = scaler.fit(df_train)
+
+    # Step 4: Scale both the training and testing data using the fitted scaler
+    df_train_scaled = scaler.transform(df_train)
+    df_test_scaled = scaler.transform(df_test)
+
+    # Split the data into X,y sets
+    X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
+    X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
@@ -126,14 +144,14 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '2y_data.pickle')
+    df, data, num_features = get_data('data', '4y_data.pickle')
 
     scaler = MinMaxScaler(feature_range=(0, 1))
 
     database_url = os.environ.get('DATABASE_URL')
 
     #Create Study
-    study = optuna.create_study(direction='minimize', study_name="regularization", load_if_exists=True, storage=database_url)
+    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-1", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)  # Adjust the number of trials

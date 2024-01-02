@@ -150,22 +150,13 @@ def add_technical_indicators(df):
 
 
 # Function to create dataset
-def create_dataset(df, input_time_steps=100, future_intervals=100):
+def create_dataset(data, input_time_steps=100, future_intervals=100):
+    X, y = [], []
+    for i in range(len(data) - input_time_steps - future_intervals):
+        X.append(data[i:(i + input_time_steps), :])
+        y.append(data[(i + input_time_steps):(i + input_time_steps + future_intervals), 0])
+    return np.array(X), np.array(y)
 
-    # This is the equivelant to making a sliding window. For every X, the y will have the next 100 closes.
-    total_size = len(df) - input_time_steps - future_intervals + 1
-    X = np.lib.stride_tricks.as_strided(
-        df,
-        shape=(total_size, input_time_steps, df.shape[1]),
-        strides=(df.strides[0], df.strides[0], df.strides[1])
-    )
-    y = np.lib.stride_tricks.as_strided(
-        df[:, 0],  # Assuming 'close' is the first feature
-        shape=(total_size, future_intervals),
-        strides=(df.strides[0], df.strides[0])
-    )
-
-    return X, y
 
 # Scoring function for model
 def calculate_weighted_rmse(predictions: np, actual: np) -> float:

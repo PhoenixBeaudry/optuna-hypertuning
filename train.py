@@ -76,27 +76,20 @@ if __name__ == "__main__":
     model.add(Dense(100)) # activation='linear'
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
-    # Step 1: Split the raw data into training and testing sets
+
     df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
 
-    # Step 2: Apply the wavelet transform to the training and testing data independently
-    if wavelet_transform == "True":
-        df_train = perform_wavelet_transform(df_train, wavelet=wavelet_type, level=decomposition_level)
-        df_test = perform_wavelet_transform(df_test, wavelet=wavelet_type, level=decomposition_level)
-
-    # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
-    #scaler = MinMaxScaler()
     scaler = scaler.fit(df_train)
+
+    # Split the data into X,y sets
+    X_train, y_train = create_dataset(df_train, num_previous_intervals)
+    X_test, y_test = create_dataset(df_test, num_previous_intervals)
+
 
     # Step 4: Scale both the training and testing data using the fitted scaler
     df_train_scaled = scaler.transform(df_train)
     df_test_scaled = scaler.transform(df_test)
-
-    # Split the data into X,y sets
-    X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
-    X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
-
 
 
     # Early stopping callback
@@ -110,21 +103,21 @@ if __name__ == "__main__":
     # Evaluate the model
     predictions = model.predict(X_test)
     # This is literally fucking stupid. How does ML work like this.
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
     # Place predictions into the first feature of this array
     modified_predictions[:, :, 0] = predictions
-    # Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
+    # Reshape modified_predictions for inverse_transform
     modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
     # Apply inverse_transform
     original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
     # Reshape back to original predictions shape, if needed
     original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    # Create a zero-filled array with the same number of samples and timesteps
     modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
     # Place y_test into the first feature of this array
     modified_y_test[:, :, 0] = y_test
-    # Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
+    # Reshape modified_y_test for inverse_transform
     modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
     # Apply inverse_transform
     original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
@@ -136,6 +129,6 @@ if __name__ == "__main__":
     print(f"Models RMSE: {rmse}")
 
     print(original_scale_predictions)
-    exit()
+
     # Save the trained model
     model.save('trained_models/hyper_model.h5')

@@ -156,6 +156,7 @@ def scale_data(data, scaler):
 
 
 def perform_wavelet_transform(data, wavelet='db1', level=2):
+    data = np.array(data)
     # Initialize an empty list to store the denoised features
     data_denoised_list = []
 
@@ -176,20 +177,19 @@ def perform_wavelet_transform(data, wavelet='db1', level=2):
 
 # Function to create dataset
 def create_dataset(df, input_time_steps=100, future_intervals=100):
-
-    # This is the equivelant to making a sliding window. For every X, the y will have the next 100 closes.
-    total_size = len(df) - input_time_steps - future_intervals + 1
-    X = np.lib.stride_tricks.as_strided(
-        df,
-        shape=(total_size, input_time_steps, df.shape[1]),
-        strides=(df.strides[0], df.strides[0], df.strides[1])
-    )
-    y = np.lib.stride_tricks.as_strided(
-        df[:, 0],  # Assuming 'close' is the first feature
-        shape=(total_size, future_intervals),
-        strides=(df.strides[0], df.strides[0])
-    )
-
+    df = np.array(df)
+    # Calculate the number of samples based on the length of the time series
+    num_samples = df.shape[0] - input_time_steps - future_intervals
+    
+    # Initialize array indices for gathering future values
+    rng = np.arange(num_samples)[:, None] + np.arange(future_intervals) + input_time_steps
+    
+    # Create the "X" dataset by broadcasting to the needed shape
+    X = np.array([perform_wavelet_transform(df[i:i + input_time_steps], "db4", level=4) for i in range(num_samples)])
+    
+    # "y" array is a 2D array of future intervals for each sample
+    y = df[rng, 0]  # Assuming 'close' is the first feature
+    
     return X, y
 
 

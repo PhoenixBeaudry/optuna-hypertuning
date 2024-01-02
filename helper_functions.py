@@ -149,31 +149,6 @@ def add_technical_indicators(df):
     return df
 
 
-# Function to scale dataset
-def scale_data(data, scaler):
-    data_scaled = scaler.fit_transform(data)
-    return data_scaled
-
-
-def perform_wavelet_transform(data, wavelet='db1', level=2):
-    # Initialize an empty list to store the denoised features
-    data_denoised_list = []
-
-    # Apply wavelet transform to each feature separately
-    for i in range(data.shape[1]):
-        coeffs = pywt.wavedec(data[:, i], wavelet=wavelet, level=level)
-        # Zero out the high-frequency components for denoising
-        coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
-        # Reconstruct the denoised signal
-        data_denoised = pywt.waverec(coeffs, wavelet)
-        # Append the denoised feature to the list
-        data_denoised_list.append(data_denoised)
-
-    # Combine the denoised features back into a single array
-    data_denoised_combined = np.column_stack(data_denoised_list)
-    return data_denoised_combined
-
-
 # Function to create dataset
 def create_dataset(df, input_time_steps=100, future_intervals=100):
 
@@ -191,7 +166,6 @@ def create_dataset(df, input_time_steps=100, future_intervals=100):
     )
 
     return X, y
-
 
 # Scoring function for model
 def calculate_weighted_rmse(predictions: np, actual: np) -> float:

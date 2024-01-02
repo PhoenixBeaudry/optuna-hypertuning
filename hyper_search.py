@@ -16,7 +16,7 @@ import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
-from train import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
+from helper_functions import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
 
 # Optuna objective
@@ -27,6 +27,7 @@ def objective(trial):
     layer_multiplier = 1 #trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
+
     # Elastic Net Regularization hyperparameters
     l1_reg = trial.suggest_float('l1_reg', 1e-5, 1e-2, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-2, log=True)

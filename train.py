@@ -45,7 +45,7 @@ if __name__ == "__main__":
     slow_step_size = 0.5859028778720838
 
     # Wavelet
-    wavelet_transform = "False"
+    wavelet_transform = "True"
     wavelet_type = "db4"
     decomposition_level = 4
 
@@ -75,11 +75,6 @@ if __name__ == "__main__":
         model.add(Dropout(dropout_rate))
     model.add(Dense(100)) # activation='linear'
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
-
-
-    # Assume 'df' is your full dataset
-
-    
 
     # Step 1: Split the raw data into training and testing sets
     df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
@@ -141,6 +136,6 @@ if __name__ == "__main__":
     print(f"Models RMSE: {rmse}")
 
     print(original_scale_predictions)
-
+    exit()
     # Save the trained model
     model.save('trained_models/hyper_model.h5')

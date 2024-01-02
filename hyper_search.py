@@ -55,12 +55,12 @@ def objective(trial):
         if i == 0:
             model.add(LSTM(hidden_units, return_sequences=num_layers > 1,
                        input_shape=(num_previous_intervals, num_features),
-                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net regularization
+                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net regularization
         else:
             model.add(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1,
-                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net regularization
+                       kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net regularization
         model.add(Dropout(dropout_rate))
-    model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))  # Apply Elastic Net 
+    model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
 
     if(optimizer_type == "adam"):
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)

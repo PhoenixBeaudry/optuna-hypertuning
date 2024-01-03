@@ -131,7 +131,7 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     #Create Study
-    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-1", load_if_exists=True, storage=database_url)
+    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-2", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)  # Adjust the number of trials

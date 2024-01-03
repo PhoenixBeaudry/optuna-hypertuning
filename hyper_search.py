@@ -18,6 +18,7 @@ from helper_functions import create_dataset, calculate_weighted_rmse, decaying_r
 
 # Optuna objective
 def objective(trial):
+    print("===== Starting new trial =====")
     #Layers
     hidden_units = trial.suggest_int('hidden_units', 128, 1024)
     num_layers = 1 #trial.suggest_int('num_layers', 1, 2)
@@ -87,9 +88,11 @@ def objective(trial):
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
     
+    print("Beginning model training...")
     # Train the model
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])
-
+    print("Model training finished!")
+    
     start = time.time()
     # Evaluate the model
     predictions = model.predict(X_test)

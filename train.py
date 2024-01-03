@@ -13,7 +13,7 @@ import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
-from helper_functions import scale_data, perform_wavelet_transform, create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, save_scaler_as_pickle
+from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, save_scaler_as_pickle
 
 
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '2y_data.pickle')
+    df, data, num_features = get_data('data', '4y_data.pickle')
 
     ##### Add your hyperparameter options
     #Layers
@@ -44,10 +44,6 @@ if __name__ == "__main__":
     sync_period = 6
     slow_step_size = 0.5859028778720838
 
-    # Wavelet
-    wavelet_transform = "True"
-    wavelet_type = "db4"
-    decomposition_level = 4
 
     #Training
     batch_size = 960
@@ -79,6 +75,7 @@ if __name__ == "__main__":
 
     df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
 
+    # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler = scaler.fit(df_train)
 
@@ -90,6 +87,10 @@ if __name__ == "__main__":
     # Step 4: Scale both the training and testing data using the fitted scaler
     df_train_scaled = scaler.transform(df_train)
     df_test_scaled = scaler.transform(df_test)
+
+    # Split the data into X,y sets
+    X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
+    X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
 
     # Early stopping callback
@@ -127,8 +128,6 @@ if __name__ == "__main__":
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
 
     print(f"Models RMSE: {rmse}")
-
-    print(original_scale_predictions)
-
+    
     # Save the trained model
     model.save('trained_models/hyper_model.h5')

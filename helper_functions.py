@@ -149,48 +149,14 @@ def add_technical_indicators(df):
     return df
 
 
-# Function to scale dataset
-def scale_data(data, scaler):
-    data_scaled = scaler.fit_transform(data)
-    return data_scaled
-
-
-def perform_wavelet_transform(data, wavelet='db1', level=2):
-    data = np.array(data)
-    # Initialize an empty list to store the denoised features
-    data_denoised_list = []
-
-    # Apply wavelet transform to each feature separately
-    for i in range(data.shape[1]):
-        coeffs = pywt.wavedec(data[:, i], wavelet=wavelet, level=level)
-        # Zero out the high-frequency components for denoising
-        coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
-        # Reconstruct the denoised signal
-        data_denoised = pywt.waverec(coeffs, wavelet)
-        # Append the denoised feature to the list
-        data_denoised_list.append(data_denoised)
-
-    # Combine the denoised features back into a single array
-    data_denoised_combined = np.column_stack(data_denoised_list)
-    return data_denoised_combined
-
-
 # Function to create dataset
-def create_dataset(df, input_time_steps=100, future_intervals=100):
-    df = np.array(df)
-    # Calculate the number of samples based on the length of the time series
-    num_samples = df.shape[0] - input_time_steps - future_intervals
-    
-    # Initialize array indices for gathering future values
-    rng = np.arange(num_samples)[:, None] + np.arange(future_intervals) + input_time_steps
-    
-    # Create the "X" dataset by broadcasting to the needed shape
-    X = np.array([perform_wavelet_transform(df[i:i + input_time_steps], "db4", level=4) for i in range(num_samples)])
-    
-    # "y" array is a 2D array of future intervals for each sample
-    y = df[rng, 0]  # Assuming 'close' is the first feature
-    
-    return X, y
+def create_dataset(data, input_time_steps=100, future_intervals=100):
+    data = np.array(data)
+    X, y = [], []
+    for i in range(len(data) - input_time_steps - future_intervals):
+        X.append(data[i:(i + input_time_steps), :])
+        y.append(data[(i + input_time_steps):(i + input_time_steps + future_intervals), 0])
+    return np.array(X), np.array(y)
 
 
 # Scoring function for model

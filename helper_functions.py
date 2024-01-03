@@ -207,20 +207,6 @@ def decaying_rmse_loss(y_true, y_pred):
     return weighted_rmse
 
 
-def save_scaler_as_pickle(scaler):
-    directory = 'trained_models'
-    filename = 'hyper_scaler.pkl'
-    filepath = os.path.join(directory, filename)
-
-    # Make sure the directory exists
-    if not os.path.exists(directory):
-        os.mkdir(directory)
-
-    # Save the scaler
-    with open(filepath, 'wb') as file:
-        pickle.dump(scaler, file)
-
-
 def load_scaler_from_pickle(directory = 'trained_models', filename = 'hyper_scaler.pkl'):
     filepath = os.path.join(directory, filename)
 

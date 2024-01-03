@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import os
 import time
 import tensorflow_addons as tfa
-from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, save_scaler_as_pickle
+from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
 
 
@@ -26,39 +26,39 @@ if __name__ == "__main__":
 
     ##### Add your hyperparameter options
     #Layers
-    hidden_units = 947
+    hidden_units = 459
     num_layers = 1
     layer_multiplier = 1
-    dropout_rate = 0.1352979618569746
-    num_previous_intervals = 57
+    dropout_rate = 0.07768953769849106
+    num_previous_intervals = 65
 
     # Elastic Net Regularization hyperparameters
-    l1_reg = 1.2669911888395433e-05
-    l2_reg = 1.0003319428243117e-05
+    l1_reg = 3.624635038622804e-05
+    l2_reg = 0.0012312129801873588
 
     # Optimizer
-    learning_rate = 0.002546037429204024
+    learning_rate = 0.05551452391723501
     optimizer_type = "ranger"
-    total_steps = 5398
-    warmup_proportion = 0.17004444961347331
-    min_lr = 1.751520128062939e-06
-    sync_period = 6
-    slow_step_size = 0.5859028778720838
+    total_steps = 14649
+    warmup_proportion = 0.10323494107850861
+    min_lr = 7.291141404840904e-05
+    sync_period = 5
+    slow_step_size = 0.4474053367229199
 
 
     #Training
-    batch_size = 960
+    batch_size = 448
 
     if(optimizer_type == "adam"):
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
     elif(optimizer_type == "ranger"):
         radam = tfa.optimizers.RectifiedAdam(
             learning_rate=learning_rate,
-            total_steps=10000,
-            warmup_proportion=0.1,
-            min_lr=1e-5,
+            total_steps=total_steps,
+            warmup_proportion=warmup_proportion,
+            min_lr=min_lr,
         )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period=6, slow_step_size=0.5)
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
     else:
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
@@ -83,10 +83,6 @@ if __name__ == "__main__":
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler = scaler.fit(df_train)
 
-    # Split the data into X,y sets
-    X_train, y_train = create_dataset(df_train, num_previous_intervals)
-    X_test, y_test = create_dataset(df_test, num_previous_intervals)
-
     # Step 4: Scale both the training and testing data using the fitted scaler
     df_train_scaled = scaler.transform(df_train)
     df_test_scaled = scaler.transform(df_test)
@@ -99,9 +95,11 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
 
     # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
+    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
-    save_scaler_as_pickle(scaler)
+    # Save the scaler
+    with open('trained_models/formless-v2_scaler.pkl', 'wb') as file:
+        pickle.dump(scaler, file)
 
     # Evaluate the model
     predictions = model.predict(X_test)
@@ -132,4 +130,4 @@ if __name__ == "__main__":
     print(f"Models RMSE: {rmse}")
     
     # Save the trained model
-    model.save('trained_models/hyper_model.h5')
+    model.save('trained_models/formless-v2.h5')

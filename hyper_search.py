@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 import optuna
-import pickle
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
@@ -11,9 +10,9 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 import os
+import time
 import tensorflow_addons as tfa
 from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
@@ -92,8 +91,13 @@ def objective(trial):
     # Train the model
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
 
+    start = time.time()
     # Evaluate the model
     predictions = model.predict(X_test)
+    end = time.time()
+    
+    trial.set_user_attr("inference_time", end-start)
+    
     # This is literally fucking stupid. How does ML work like this.
     # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))

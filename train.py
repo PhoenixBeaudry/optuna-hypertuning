@@ -9,9 +9,9 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.model_selection import train_test_split
-import pywt
 from dotenv import load_dotenv
 import os
+import time
 import tensorflow_addons as tfa
 from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, save_scaler_as_pickle
 
@@ -83,7 +83,6 @@ if __name__ == "__main__":
     X_train, y_train = create_dataset(df_train, num_previous_intervals)
     X_test, y_test = create_dataset(df_test, num_previous_intervals)
 
-
     # Step 4: Scale both the training and testing data using the fitted scaler
     df_train_scaled = scaler.transform(df_train)
     df_test_scaled = scaler.transform(df_test)
@@ -91,7 +90,6 @@ if __name__ == "__main__":
     # Split the data into X,y sets
     X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
     X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
-
 
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)

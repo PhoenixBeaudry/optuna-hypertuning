@@ -151,6 +151,7 @@ def add_technical_indicators(df):
 
 # Function to create dataset
 def create_dataset(data, input_time_steps=100, future_intervals=100):
+    data = np.array(data)
     X, y = [], []
     for i in range(len(data) - input_time_steps - future_intervals):
         X.append(data[i:(i + input_time_steps), :])

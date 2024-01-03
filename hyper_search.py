@@ -72,11 +72,11 @@ def objective(trial):
     # Step 1: Split the raw data into training and testing sets
     df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
 
-    # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
+    # Step 2: Initialize and fit the scaler on the training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler = scaler.fit(df_train)
 
-    # Step 4: Scale both the training and testing data using the fitted scaler
+    # Step 3: Scale both the training and testing data using the fitted scaler
     df_train_scaled = scaler.transform(df_train)
     df_test_scaled = scaler.transform(df_test)
 
@@ -94,29 +94,26 @@ def objective(trial):
     # Evaluate the model
     predictions = model.predict(X_test)
     end = time.time()
-    
     trial.set_user_attr("inference_time", end-start)
     
-    # This is literally fucking stupid. How does ML work like this.
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
     # Place predictions into the first feature of this array
     modified_predictions[:, :, 0] = predictions
-    # Reshape modified_predictions to 2D (51911*100, 5) for inverse_transform
+    # Reshape modified_predictions to 2D
     modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
     # Apply inverse_transform
     original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
     # Reshape back to original predictions shape, if needed
     original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
-    # Create a zero-filled array with the same number of samples and timesteps, but with 5 features
+    # Create a zero-filled array with the same number of samples and timesteps
     modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
     # Place y_test into the first feature of this array
     modified_y_test[:, :, 0] = y_test
-    # Reshape modified_y_test to 2D (51911*100, 5) for inverse_transform
+    # Reshape modified_y_test to 2D
     modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
     # Apply inverse_transform
     original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
-    # Reshape back to original y_test shape, if needed
     # (Selecting only the first feature, assuming y_test corresponds to the first feature)
     original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)

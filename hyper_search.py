@@ -4,7 +4,6 @@ import pandas as pd
 import optuna
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -40,7 +39,7 @@ def objective(trial):
     slow_step_size = trial.suggest_float("slow_step_size", 0.4, 0.6)
 
     #Training
-    batch_size = trial.suggest_int('batch_size', 64, 1024, step=128)
+    batch_size = trial.suggest_int('batch_size', 64, 1024, step=64)
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()

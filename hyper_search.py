@@ -88,7 +88,7 @@ def objective(trial):
     early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
     
     # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=0, callbacks=[early_stopping])
+    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
     start = time.time()
     # Evaluate the model

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '2y_data.pickle')
+    df, data, num_features = get_data('data', '4y_data.pickle')
 
     ##### Add your hyperparameter options
     #Layers

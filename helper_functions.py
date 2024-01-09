@@ -5,8 +5,7 @@ import pickle
 import tensorflow as tf
 import os
 
-def get_data_struct_from_pickle(directory, filename):
-    filepath = os.path.join(directory, filename)
+def get_data_struct_from_pickle(filepath):
 
     #Load the data from the pickle file
     with open(filepath, 'rb') as file:
@@ -53,8 +52,8 @@ def clean_data(df):
 
 
 
-def get_data(directory = 'data', filename = '2y_data.pickle'):
-    data_structure = get_data_struct_from_pickle(directory, filename)
+def get_data(filepath = 'data/1y_data.pickle'):
+    data_structure = get_data_struct_from_pickle(filepath)
 
     data_df = data_struct_to_data_frame(data_structure)
     
@@ -62,9 +61,7 @@ def get_data(directory = 'data', filename = '2y_data.pickle'):
     
     df = clean_data(df)
 
-    data = df.values    
-
-    return data
+    return df
 
 
 # Technical indicator helper functions
@@ -122,6 +119,8 @@ def add_technical_indicators(df):
     df['shadow5'] = df['lower_Shadow'] / df['volume']
     df['mean1'] = (df['shadow5'] + df['shadow3']) / 2
     df['mean2'] = (df['shadow1'] + df['volume']) / 2
+    df['hour'] = df['timestamps'].dt.hour
+    df['day_of_week'] = df['timestamps'].dt.dayofweek
 
     return df
 

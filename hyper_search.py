@@ -14,70 +14,39 @@ from dotenv import load_dotenv
 import os
 import time
 import tensorflow_addons as tfa
-from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss
+from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
 
 # Optuna objective
 def objective(trial):
     print("===== Starting new trial =====")
     #### Data Loading
-    
-    #Load the data from the pickle file
-    with open("data/1y_data.pickle", 'rb') as file:
-        data_structure = pickle.load(file)
-
-    data_structure = [data_structure[0],
-    data_structure[1],
-    data_structure[2],
-    data_structure[3],
-    data_structure[4]]
-
-    data_array = np.array(data_structure).T
-
-    #Assuming the structure is [timestamps, close, high, low, volume]
-    timestamps = pd.to_datetime(data_array[:, 0], unit='ms')
-    close_prices = data_array[:, 1]
-    high_prices = data_array[:, 2]
-    low_prices = data_array[:, 3]
-    volumes = data_array[:, 4]
-
-    # Combine all features into a DataFrame
-    data_df = pd.DataFrame({
-        'timestamps': timestamps,
-        'close': close_prices,
-        'high': high_prices,
-        'low': low_prices,
-        'volume': volumes
-    })
-
-    # remove all NaN values
-    data_df.dropna(inplace=True)
-    data_df.drop('timestamps', axis=1, inplace=True)
-
-    data = data_df.values
+    df = get_data()
+    training_data = df[['close','high','low','volume','EMA_5','EMA_15','RSI','MACD','Signal_Line','mean1','mean2','hour','day_of_week']]
+    data = training_data.values
     num_features = data.shape[1]
 
     ############# SEARCH PARAMS #############
     #Layers
-    hidden_units = trial.suggest_int('hidden_units', 64, 768)
-    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
+    hidden_units = trial.suggest_int('hidden_units', 100, 400)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.4)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
 
     # Elastic Net Regularization hyperparameters
     l1_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
 
     # Optimizer
-    learning_rate = trial.suggest_float('learning_rate', 1e-2, 1e-1, log=True)
+    learning_rate = 0.05
     weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
-    sync_period = trial.suggest_int('sync_period', 3, 7)
-    slow_step_size = trial.suggest_float('dropout_rate', 0.2, 0.8, step=0.1)
+    sync_period = 3
+    slow_step_size = 0.6
 
     #Callbacks
-    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.025, 0.5, step=0.025)
+    lr_reduction_factor = 0.35
 
     #Training
-    batch_size = trial.suggest_int('batch_size', 64, 256, step=64)
+    batch_size = trial.suggest_int('batch_size', 128, 192, step=64)
 
 
     ##########################################
@@ -165,7 +134,7 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     #Create Study
-    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-5", load_if_exists=True, storage=database_url)
+    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-6", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)  # Adjust the number of trials

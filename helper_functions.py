@@ -92,7 +92,6 @@ def get_data(directory = 'data', filename = '2y_data.pickle'):
 # Technical indicator helper functions
 def upper_shadow(df): return df['high'] - np.maximum(df['close'], df['open'])
 
-
 def lower_shadow(df): return np.minimum(df['close'], df['open']) - df['low']
 
 

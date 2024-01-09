@@ -32,7 +32,6 @@ def objective(trial):
 
     # Optimizer
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
-    optimizer_type = "ranger"
     total_steps = trial.suggest_int("total_steps", 5000, 20000)
     warmup_proportion = trial.suggest_float("warmup_proportion", 0.05, 0.2)
     min_lr = trial.suggest_float("min_lr", 1e-7, 1e-4, log=True)
@@ -55,18 +54,15 @@ def objective(trial):
         model.add(Dropout(dropout_rate))
     model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
 
-    if(optimizer_type == "adam"):
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    elif(optimizer_type == "ranger"):
-        radam = tfa.optimizers.RectifiedAdam(
-            learning_rate=learning_rate,
-            total_steps=total_steps,
-            warmup_proportion=warmup_proportion,
-            min_lr=min_lr,
-        )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
-    else:
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
+    radam = tfa.optimizers.RectifiedAdam(
+        learning_rate=learning_rate,
+        total_steps=total_steps,
+        warmup_proportion=warmup_proportion,
+        min_lr=min_lr,
+    )
+    optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
+
 
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 

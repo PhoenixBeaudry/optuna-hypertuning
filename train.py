@@ -36,7 +36,6 @@ if __name__ == "__main__":
 
     # Optimizer
     learning_rate = 0.005551452391723501
-    optimizer_type = "ranger"
     total_steps = 10000
     warmup_proportion = 0.10323494107850861
     min_lr = 7.291141404840904e-05

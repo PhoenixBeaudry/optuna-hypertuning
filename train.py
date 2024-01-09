@@ -25,8 +25,6 @@ if __name__ == "__main__":
     ##### Add your hyperparameter options
     #Layers
     hidden_units = 512
-    num_layers = 1
-    layer_multiplier = 1
     dropout_rate = 0.2
     num_previous_intervals = 100
 

@@ -4,9 +4,9 @@ import pandas as pd
 import pickle
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import AdamW
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.regularizers import l1_l2
@@ -25,9 +25,9 @@ if __name__ == "__main__":
 
     ##### Add your hyperparameter options
     #Layers
-    hidden_units = 512
+    hidden_units = 800
     dropout_rate = 0.2
-    num_previous_intervals = 50
+    num_previous_intervals = 75
 
     # Elastic Net Regularization hyperparameters
     l1_reg = 1e-5
@@ -50,7 +50,6 @@ if __name__ == "__main__":
         weight_decay=weight_decay
     )
     optimizer = tfa.optimizers.Lookahead(adamw, sync_period=sync_period, slow_step_size=slow_step_size)
-
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -76,12 +75,13 @@ if __name__ == "__main__":
 
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+    model_checkpoint = ModelCheckpoint('formless-v2_1.h5', monitor='val_loss', save_best_only=True)
 
     # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])
+    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping, model_checkpoint])
 
     # Save the scaler
-    with open('trained_models/formless-v3_1_scaler.pkl', 'wb') as file:
+    with open('trained_models/formless-v2_1_scaler.pkl', 'wb') as file:
         pickle.dump(scaler, file)
 
     # Evaluate the model
@@ -111,5 +111,3 @@ if __name__ == "__main__":
 
     print(f"Models RMSE: {rmse}")
     
-    # Save the trained model
-    model.save('trained_models/formless-v3_1.h5')

@@ -1,21 +1,9 @@
 # Imports
 import numpy as np
 import pandas as pd
-import optuna
 import pickle
-from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.regularizers import l1_l2
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-import pywt
-from dotenv import load_dotenv
 import os
-import tensorflow_addons as tfa
 
 def get_data_struct_from_pickle(directory, filename):
     filepath = os.path.join(directory, filename)
@@ -64,10 +52,10 @@ def clean_data(df):
     return df
 
 
-"""
-Take a raw data_structure, transform it to a data frame, add features, and clean it
-"""
-def data_pipeline(data_structure):
+
+def get_data(directory = 'data', filename = '2y_data.pickle'):
+    data_structure = get_data_struct_from_pickle(directory, filename)
+
     data_df = data_struct_to_data_frame(data_structure)
     
     df = add_technical_indicators(data_df)
@@ -76,17 +64,7 @@ def data_pipeline(data_structure):
 
     data = df.values    
 
-    num_features = data.shape[1]
-
-    return df, data, num_features
-
-
-def get_data(directory = 'data', filename = '2y_data.pickle'):
-    data_structure = get_data_struct_from_pickle(directory, filename)
-
-    df, data, num_features = data_pipeline(data_structure)
-
-    return df, data, num_features
+    return data
 
 
 # Technical indicator helper functions
@@ -208,11 +186,3 @@ def decaying_rmse_loss(y_true, y_pred):
 
     return mean_weighted_rmse
 
-
-def load_scaler_from_pickle(directory = 'trained_models', filename = 'hyper_scaler.pkl'):
-    filepath = os.path.join(directory, filename)
-
-    with open(filepath, 'rb') as file:
-        scaler = pickle.load(file)
-    
-    return scaler

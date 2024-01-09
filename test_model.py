@@ -9,14 +9,15 @@ import pywt
 from dotenv import load_dotenv
 import os
 import tensorflow_addons as tfa
-from train import scale_data, perform_wavelet_transform, get_data, load_scaler_from_pickle
+from train import scale_data, perform_wavelet_transform, get_data
 
 
 if __name__ == "__main__":
     # Load our model
     model = tf.keras.models.load_model(f'trained_models/hyper_model.h5', compile=False)
     # Load our scaler
-    scaler = load_scaler_from_pickle()
+    with open("trained_models/hyper_model_scaler.pkl", 'rb') as file:
+        scaler = pickle.load(file)
 
     df, data, num_features = get_data('data', '2y_data.pickle')
 

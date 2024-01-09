@@ -125,7 +125,8 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '2y_data.pickle')
+    data = get_data('data', '2y_data.pickle')
+    num_features = data.shape[1]
 
     database_url = os.environ.get('DATABASE_URL')
 

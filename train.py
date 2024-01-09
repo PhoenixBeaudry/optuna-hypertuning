@@ -20,7 +20,8 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '2y_data.pickle')
+    data = get_data('data', '2y_data.pickle')
+    num_features = data.shape[1]
 
     ##### Add your hyperparameter options
     #Layers
@@ -59,7 +60,7 @@ if __name__ == "__main__":
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
 
-    df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False)
+    df_train, df_test = train_test_split(data, test_size=0.2, shuffle=False)
 
     # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
     scaler = MinMaxScaler(feature_range=(0, 1))

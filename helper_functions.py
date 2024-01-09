@@ -198,12 +198,15 @@ def decaying_rmse_loss(y_true, y_pred):
 
     # Compute weighted squared error
     squared_errors = tf.square(y_pred - y_true)
-    weighted_squared_errors = weights * squared_errors
+    weighted_squared_errors = squared_errors * weights
 
-    # Compute the weighted RMSE
-    weighted_rmse = tf.sqrt(tf.reduce_sum(weighted_squared_errors) / tf.reduce_sum(weights))
+    # Compute the weighted RMSE for each example in the batch
+    weighted_rmse_per_example = tf.sqrt(tf.reduce_sum(weighted_squared_errors, axis=1) / tf.reduce_sum(weights))
 
-    return weighted_rmse
+    # Compute the mean RMSE across the batch
+    mean_weighted_rmse = tf.reduce_mean(weighted_rmse_per_example)
+
+    return mean_weighted_rmse
 
 
 def load_scaler_from_pickle(directory = 'trained_models', filename = 'hyper_scaler.pkl'):

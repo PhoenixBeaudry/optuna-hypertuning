@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.regularizers import l1_l2
 from dotenv import load_dotenv
@@ -26,44 +26,40 @@ if __name__ == "__main__":
     #Layers
     hidden_units = 512
     dropout_rate = 0.2
-    num_previous_intervals = 100
+    num_previous_intervals = 50
 
     # Elastic Net Regularization hyperparameters
-    l1_reg = 3.624635038622804e-05
-    l2_reg = 0.0012312129801873588
+    l1_reg = 1e-5
+    l2_reg = 1e-3
 
     # Optimizer
-    learning_rate = 0.005551452391723501
-    total_steps = 10000
-    warmup_proportion = 0.10323494107850861
-    min_lr = 7.291141404840904e-05
+    learning_rate = 1e-3
+    weight_decay = 1e-4
     sync_period = 5
-    slow_step_size = 0.4474053367229199
+    slow_step_size = 0.4
 
 
     #Training
-    batch_size = 64
+    batch_size = 128
 
     # Optimizer
-    radam = tfa.optimizers.RectifiedAdam(
+    # AdamW Optimizer
+    adamw = tfa.optimizers.AdamW(
         learning_rate=learning_rate,
-        total_steps=total_steps,
-        warmup_proportion=warmup_proportion,
-        min_lr=min_lr,
+        weight_decay=weight_decay
     )
-    optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
+    optimizer = tfa.optimizers.Lookahead(adamw, sync_period=sync_period, slow_step_size=slow_step_size)
 
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
-
-    model.add(LSTM(hidden_units, return_sequences=num_layers > 1, input_shape=(num_previous_intervals, num_features), kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net regularization
+    model.add(Bidirectional(LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features), kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))) # Apply Elastic Net regularization
     model.add(Dropout(dropout_rate))
-    model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
+    model.add(Dense(100, activation='linear', kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
 
-    df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False, random_state=42)
+    df_train, df_test = train_test_split(df, test_size=0.2, shuffle=False)
 
     # Step 3: Initialize and fit the scaler on the wavelet-transformed training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -84,12 +80,11 @@ if __name__ == "__main__":
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
     # Save the scaler
-    with open('trained_models/formless-v2_scaler.pkl', 'wb') as file:
+    with open('trained_models/formless-v3_1_scaler.pkl', 'wb') as file:
         pickle.dump(scaler, file)
 
     # Evaluate the model
     predictions = model.predict(X_test)
-    # This is literally fucking stupid. How does ML work like this.
     # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
     # Place predictions into the first feature of this array
@@ -116,4 +111,4 @@ if __name__ == "__main__":
     print(f"Models RMSE: {rmse}")
     
     # Save the trained model
-    model.save('trained_models/formless-v2.h5')
+    model.save('trained_models/formless-v3_1.h5')

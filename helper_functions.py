@@ -140,25 +140,18 @@ def create_dataset(data, input_time_steps=100, future_intervals=100):
 def calculate_weighted_rmse(predictions: np, actual: np) -> float:
     predictions = np.array(predictions)
     actual = np.array(actual)
-
     k = 0.001
-
     # Create weights array
     weights = np.exp(-k * np.arange(predictions.shape[1]))
-    
     # Calculate weighted squared errors for each row
     weighted_squared_errors = (predictions - actual) ** 2 * weights
-    
     # Sum the weighted squared errors and the weights for each row
     sum_weighted_squared_errors = np.sum(weighted_squared_errors, axis=1)
     sum_weights = np.sum(weights)
-    
     # Calculate RMSE for each row
     rmse_per_row = np.sqrt(sum_weighted_squared_errors / sum_weights)
-
     # Calculate the mean of the RMSE values for each row
     mean_rmse = np.mean(rmse_per_row)
-    
     return mean_rmse
 
 

@@ -263,35 +263,10 @@ def main( config ):
 
         num_features = data.shape[1]
 
-        # Function to scale dataset
-        def scale_data(data):
-            data_scaled = scaler.fit_transform(data)
-            return data_scaled
-
-        def perform_wavelet_transform(data, wavelet='db4', level=4):
-            # Initialize an empty list to store the denoised features
-            data_denoised_list = []
-
-            # Apply wavelet transform to each feature separately
-            for i in range(data.shape[1]):
-                coeffs = pywt.wavedec(data[:, i], wavelet=wavelet, level=level)
-                # Zero out the high-frequency components for denoising
-                coeffs[1:] = [np.zeros_like(coeff) for coeff in coeffs[1:]]
-                # Reconstruct the denoised signal
-                data_denoised = pywt.waverec(coeffs, wavelet)
-                # Append the denoised feature to the list
-                data_denoised_list.append(data_denoised)
-
-            # Combine the denoised features back into a single array
-            data_denoised_combined = np.column_stack(data_denoised_list)
-            return data_denoised_combined
-
-        wavelet_type = "db4"
-        decomposition_level = 4
-        input = scale_data(perform_wavelet_transform(data, wavelet=wavelet_type, level=decomposition_level))
+        data_scaled = scaler.transform(data)
 
         # Evaluate the model
-        predictions = model.predict(input[-57:].reshape([1, 57, num_features]))
+        predictions = model.predict(data_scaled[-57:].reshape([1, 57, num_features]))
 
         # This is literally fucking stupid. How does ML work like this.
         # Create a zero-filled array with the same number of samples and timesteps

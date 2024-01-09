@@ -11,8 +11,6 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.regularizers import l1_l2
 from dotenv import load_dotenv
-import os
-import time
 import tensorflow_addons as tfa
 from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
 
@@ -22,24 +20,24 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '4y_data.pickle')
+    df, data, num_features = get_data('data', '2y_data.pickle')
 
     ##### Add your hyperparameter options
     #Layers
-    hidden_units = 459
+    hidden_units = 512
     num_layers = 1
     layer_multiplier = 1
-    dropout_rate = 0.07768953769849106
-    num_previous_intervals = 65
+    dropout_rate = 0.2
+    num_previous_intervals = 100
 
     # Elastic Net Regularization hyperparameters
     l1_reg = 3.624635038622804e-05
     l2_reg = 0.0012312129801873588
 
     # Optimizer
-    learning_rate = 0.05551452391723501
+    learning_rate = 0.005551452391723501
     optimizer_type = "ranger"
-    total_steps = 14649
+    total_steps = 10000
     warmup_proportion = 0.10323494107850861
     min_lr = 7.291141404840904e-05
     sync_period = 5
@@ -47,20 +45,17 @@ if __name__ == "__main__":
 
 
     #Training
-    batch_size = 448
+    batch_size = 64
 
-    if(optimizer_type == "adam"):
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    elif(optimizer_type == "ranger"):
-        radam = tfa.optimizers.RectifiedAdam(
-            learning_rate=learning_rate,
-            total_steps=total_steps,
-            warmup_proportion=warmup_proportion,
-            min_lr=min_lr,
-        )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
-    else:
-        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    # Optimizer
+    radam = tfa.optimizers.RectifiedAdam(
+        learning_rate=learning_rate,
+        total_steps=total_steps,
+        warmup_proportion=warmup_proportion,
+        min_lr=min_lr,
+    )
+    optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
+
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -92,7 +87,7 @@ if __name__ == "__main__":
     X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
     # Early stopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
 
     # Train the model
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping])

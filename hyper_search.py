@@ -20,27 +20,27 @@ from helper_functions import create_dataset, calculate_weighted_rmse, decaying_r
 def objective(trial):
     print("===== Starting new trial =====")
     #Layers
-    hidden_units = trial.suggest_int('hidden_units', 128, 1024)
+    hidden_units = trial.suggest_int('hidden_units', 64, 768)
     num_layers = 1 #trial.suggest_int('num_layers', 1, 2)
     layer_multiplier = 1 #trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
 
     # Elastic Net Regularization hyperparameters
-    l1_reg = trial.suggest_float('l1_reg', 1e-5, 1e-2, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-2, log=True)
+    l1_reg = trial.suggest_float('l1_reg', 1e-5, 1e-2)
+    l2_reg = trial.suggest_float('l2_reg', 1e-5, 1e-2)
 
     # Optimizer
     learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-1, log=True)
     optimizer_type = "ranger"
     total_steps = trial.suggest_int("total_steps", 5000, 20000)
     warmup_proportion = trial.suggest_float("warmup_proportion", 0.05, 0.2)
-    min_lr = trial.suggest_float("min_lr", 1e-6, 1e-4, log=True)
+    min_lr = trial.suggest_float("min_lr", 1e-7, 1e-4, log=True)
     sync_period = trial.suggest_int("sync_period", 5, 10)
     slow_step_size = trial.suggest_float("slow_step_size", 0.4, 0.6)
 
     #Training
-    batch_size = trial.suggest_int('batch_size', 64, 1024, step=64)
+    batch_size = trial.suggest_int('batch_size', 64, 256, step=64)
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
@@ -86,7 +86,7 @@ def objective(trial):
     X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
     # Early stopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     
     print("Beginning model training...")
     # Train the model
@@ -129,12 +129,12 @@ if __name__ == "__main__":
     # Load the .env file
     load_dotenv()
 
-    df, data, num_features = get_data('data', '4y_data.pickle')
+    df, data, num_features = get_data('data', '2y_data.pickle')
 
     database_url = os.environ.get('DATABASE_URL')
 
     #Create Study
-    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-2", load_if_exists=True, storage=database_url)
+    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-3", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)  # Adjust the number of trials

@@ -58,21 +58,23 @@ def objective(trial):
     num_features = data.shape[1]
 
     ############# SEARCH PARAMS #############
-
     #Layers
     hidden_units = trial.suggest_int('hidden_units', 64, 768)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.3)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 170)
 
     # Elastic Net Regularization hyperparameters
-    l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-3, log=True)
+    l1_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
 
     # Optimizer
-    learning_rate = 1e-2
-    weight_decay = 1e-4
-    sync_period = 7
-    slow_step_size = 0.7
+    learning_rate = trial.suggest_float('learning_rate', 1e-2, 1e-1, log=True)
+    weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
+    sync_period = trial.suggest_int('sync_period', 3, 7)
+    slow_step_size = trial.suggest_float('dropout_rate', 0.2, 0.8, step=0.1)
+
+    #Callbacks
+    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.025, 0.5, step=0.025)
 
     #Training
     batch_size = trial.suggest_int('batch_size', 64, 256, step=64)
@@ -116,7 +118,7 @@ def objective(trial):
 
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, verbose=1)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=7, verbose=1)
     
     print("Beginning model training...")
     # Train the model

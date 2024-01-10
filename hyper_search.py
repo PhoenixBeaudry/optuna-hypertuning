@@ -9,6 +9,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.regularizers import l1_l2
+from optuna.integration import TFKerasPruningCallback
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
 import os
@@ -126,13 +127,14 @@ def objective(trial):
     X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
     X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
-    # Early stopping callback
+    # Callbacks
     early_stopping = EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=7, verbose=1)
+    pruning = TFKerasPruningCallback(trial, monitor='val_loss')
     
     print("Beginning model training...")
     # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping, reduce_lr])
+    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping, reduce_lr, pruning])
     print("Model training finished!")
     
 
@@ -179,10 +181,10 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     if local:
-        study = optuna.create_study(direction='minimize')
+        study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner())
     else:
         #Create Study
-        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch", load_if_exists=True, storage=database_url)
+        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner())
 
     # Do the study
     study.optimize(objective)

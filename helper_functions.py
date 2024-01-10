@@ -156,25 +156,17 @@ def calculate_weighted_rmse(predictions: np, actual: np) -> float:
 
 # Objective function to be optimized
 def decaying_rmse_loss(y_true, y_pred):
-    k = 0.001  # decay rate, adjust as needed
-
-    # Ensure predictions and actual values are tensors
-    y_true = tf.convert_to_tensor(y_true, dtype=tf.float32)
-    y_pred = tf.convert_to_tensor(y_pred, dtype=tf.float32)
-
-    # Calculate the weights with exponential decay
-    seq_length = tf.shape(y_true)[1]  # assuming y_true is of shape [batch_size, sequence_length]
-    weights = tf.exp(-k * tf.range(start=0.0, limit=tf.cast(seq_length, tf.float32), dtype=tf.float32))
-
-    # Compute weighted squared error
-    squared_errors = tf.square(y_pred - y_true)
-    weighted_squared_errors = squared_errors * weights
-
-    # Compute the weighted RMSE for each example in the batch
-    weighted_rmse_per_example = tf.sqrt(tf.reduce_sum(weighted_squared_errors, axis=1) / tf.reduce_sum(weights))
-
-    # Compute the mean RMSE across the batch
-    mean_weighted_rmse = tf.reduce_mean(weighted_rmse_per_example)
-
-    return mean_weighted_rmse
+    k = 0.001
+    # Create weights array
+    weights = tf.exp(-k * tf.range(tf.shape(y_pred)[1], dtype=tf.float32))
+    # Calculate weighted squared errors for each row
+    weighted_squared_errors = tf.square(y_pred - y_true) * weights
+    # Sum the weighted squared errors and the weights for each row
+    sum_weighted_squared_errors = tf.reduce_sum(weighted_squared_errors, axis=1)
+    sum_weights = tf.reduce_sum(weights)
+    # Calculate RMSE for each row
+    rmse_per_row = tf.sqrt(sum_weighted_squared_errors / sum_weights)
+    # Calculate the mean of the RMSE values for each row
+    mean_rmse = tf.reduce_mean(rmse_per_row)
+    return mean_rmse
 

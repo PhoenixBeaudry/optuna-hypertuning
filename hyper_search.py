@@ -33,7 +33,7 @@ def objective(trial):
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
 
     # Elastic Net Regularization hyperparameters
-    l1_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
+    l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-3, log=True)
     l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
 
     # Optimizer
@@ -59,8 +59,9 @@ def objective(trial):
     model.add(Dropout(dropout_rate))
     model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
 
-
     # Optimizer
+    adam = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    
     # AdamW Optimizer
     adamw = tfa.optimizers.AdamW(
         learning_rate=learning_rate,
@@ -68,7 +69,7 @@ def objective(trial):
     )
     optimizer = tfa.optimizers.Lookahead(adamw, sync_period=sync_period, slow_step_size=slow_step_size)
 
-    model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
+    model.compile(optimizer=adam, loss=decaying_rmse_loss)
 
     # Step 1: Split the raw data into training and testing sets
     df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)

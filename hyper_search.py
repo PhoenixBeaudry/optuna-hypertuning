@@ -184,7 +184,7 @@ if __name__ == "__main__":
         study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
     else:
         #Create Study
-        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
+        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch2", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
 
     # Do the study
     study.optimize(objective)

@@ -33,8 +33,8 @@ def objective(trial):
     num_layers = trial.suggest_int('num_layers', 1, 3)
     layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     hidden_units = trial.suggest_int('hidden_units', 80, 1000)
-    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.5)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.7)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 150)
     
     
     # Elastic Net Regularization hyperparameters
@@ -62,10 +62,10 @@ def objective(trial):
 
 
     #Callbacks
-    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.05, 0.5, log=True)
+    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.05, 0.5)
 
     #Training
-    batch_size = trial.suggest_categorical('batch_size', [128, 256, 512])
+    batch_size = trial.suggest_categorical('batch_size', [64, 128, 256, 512, 768])
     ##########################################
     print(f"Trial has these parameters: {trial.params}")
 
@@ -113,7 +113,7 @@ def objective(trial):
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
     # Step 1: Split the raw data into training and testing sets
-    df_train, df_test = train_test_split(data, test_size=0.1, shuffle=False)
+    df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)
 
     # Step 2: Initialize and fit the scaler on the training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -128,13 +128,13 @@ def objective(trial):
     X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
 
     # Callbacks
-    early_stopping = EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=7, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=7, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=3, verbose=1)
     pruning = TFKerasPruningCallback(trial, monitor='val_loss')
     
     print("Beginning model training...")
     # Train the model
-    model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping, reduce_lr, pruning])
+    history = model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.2, verbose=1, callbacks=[early_stopping, reduce_lr, pruning])
     print("Model training finished!")
     
 
@@ -144,7 +144,7 @@ def objective(trial):
     # Evaluate the model
     predictions = model.predict(X_test)
     end = time.time()
-    trial.set_system_attr("inference_time", end-start)
+    trial.set_user_attr("inference_time", end-start)
     
     # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
@@ -168,8 +168,9 @@ def objective(trial):
     # (Selecting only the first feature, assuming y_test corresponds to the first feature)
     original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
+    trial.set_user_attr("tested_rmse", rmse)
 
-    return rmse
+    return min(history.history['val_loss'])
 
 
 if __name__ == "__main__":
@@ -184,7 +185,7 @@ if __name__ == "__main__":
         study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
     else:
         #Create Study
-        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch2", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
+        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch3", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=3))
 
     # Do the study
     study.optimize(objective)

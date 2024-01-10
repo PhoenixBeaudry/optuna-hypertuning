@@ -181,7 +181,7 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     if local:
-        study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner())
+        study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner(min_early_stopping_rate=4))
     else:
         #Create Study
         study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner())

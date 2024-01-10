@@ -33,27 +33,21 @@ if __name__ == "__main__":
 
     # Optimizer
     learning_rate = 1e-3
-    weight_decay = 1e-4
-    sync_period = 5
+    sync_period = 3
     slow_step_size = 0.4
 
     #Training
     batch_size = 256
 
     # Optimizer
-    adam = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    # AdamW Optimizer
-    adamw = tfa.optimizers.AdamW(
-        learning_rate=learning_rate,
-        weight_decay=weight_decay
-    )
-    optimizer = tfa.optimizers.Lookahead(adamw, sync_period=sync_period, slow_step_size=slow_step_size)
+    adam = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
+    optimizer = tfa.optimizers.Lookahead(adam, sync_period=sync_period, slow_step_size=slow_step_size)
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
-    model.add((LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features)))) # Apply Elastic Net regularization
+    model.add((LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features))))
     model.add(Dropout(dropout_rate))
-    model.add(Dense(100, activation='linear')) # Apply Elastic Net
+    model.add(Dense(100, activation='linear'))
     model.compile(optimizer=adam, loss=decaying_rmse_loss)
 
     df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)

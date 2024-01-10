@@ -28,13 +28,13 @@ def objective(trial):
 
     ############# SEARCH PARAMS #############
     #Layers
-    hidden_units = trial.suggest_int('hidden_units', 100, 400)
+    hidden_units = trial.suggest_int('hidden_units', 100, 500)
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.4)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
 
     # Optimizer
     learning_rate = 0.05
-    sync_period = 3
+    sync_period = 4
     slow_step_size = 0.6
 
     #Callbacks
@@ -44,17 +44,15 @@ def objective(trial):
     batch_size = 256
 
     ##########################################
-
     # Create a model with the current trial's hyperparameters
     model = Sequential()
-    model.add(LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features))) # Apply Elastic Net regularization
+    model.add(LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features))) 
     model.add(Dropout(dropout_rate))
-    model.add(Dense(100)) # Apply Elastic Net 
+    model.add(Dense(100)) 
 
     # Optimizer
-    adam = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    adam = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
     optimizer = tfa.optimizers.Lookahead(adam, sync_period=sync_period, slow_step_size=slow_step_size)
-
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
     # Step 1: Split the raw data into training and testing sets
@@ -121,7 +119,7 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     #Create Study
-    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-6", load_if_exists=True, storage=database_url)
+    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-7", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)  # Adjust the number of trials

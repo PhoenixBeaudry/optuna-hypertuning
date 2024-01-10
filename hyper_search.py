@@ -32,13 +32,8 @@ def objective(trial):
     dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.4)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
 
-    # Elastic Net Regularization hyperparameters
-    l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-3, log=True)
-    l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-3, log=True)
-
     # Optimizer
     learning_rate = 0.05
-    weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
     sync_period = 3
     slow_step_size = 0.6
 
@@ -46,30 +41,21 @@ def objective(trial):
     lr_reduction_factor = 0.35
 
     #Training
-    batch_size = trial.suggest_int('batch_size', 128, 192, step=64)
-
+    batch_size = 256
 
     ##########################################
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()
-    model.add(LSTM(hidden_units, return_sequences=False,
-                input_shape=(num_previous_intervals, num_features),
-                kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net regularization
+    model.add(LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features))) # Apply Elastic Net regularization
     model.add(Dropout(dropout_rate))
-    model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net 
+    model.add(Dense(100)) # Apply Elastic Net 
 
     # Optimizer
     adam = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    
-    # AdamW Optimizer
-    adamw = tfa.optimizers.AdamW(
-        learning_rate=learning_rate,
-        weight_decay=weight_decay
-    )
-    optimizer = tfa.optimizers.Lookahead(adamw, sync_period=sync_period, slow_step_size=slow_step_size)
+    optimizer = tfa.optimizers.Lookahead(adam, sync_period=sync_period, slow_step_size=slow_step_size)
 
-    model.compile(optimizer=adam, loss=decaying_rmse_loss)
+    model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
     # Step 1: Split the raw data into training and testing sets
     df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)

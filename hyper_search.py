@@ -7,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.regularizers import l1_l2
 from sklearn.model_selection import train_test_split
 from dotenv import load_dotenv
@@ -28,35 +28,91 @@ def objective(trial):
 
     ############# SEARCH PARAMS #############
     #Layers
-    hidden_units = trial.suggest_int('hidden_units', 100, 500)
-    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.4)
+    bidirectional = trial.suggest_categorical('bidirectional', [True, False])
+    num_layers = trial.suggest_int('num_layers', 1, 3)
+    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
+    hidden_units = trial.suggest_int('hidden_units', 80, 1000)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.5)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 30, 120)
+    
+    
+    # Elastic Net Regularization hyperparameters
+    elastic_net = trial.suggest_categorical('elastic_net', [True, False])
+    l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-1)
+    l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-1)
+
 
     # Optimizer
-    learning_rate = 0.05
-    sync_period = 4
-    slow_step_size = 0.6
+    optimizer_type = trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
+    learning_rate = trial.suggest_float('learning_rate', 1e-6, 1e-1)
+    sync_period = trial.suggest_int('sync_period', 2, 9)
+    slow_step_size = trial.suggest_float('slow_step_size', 0.1, 0.9)
+    total_steps = trial.suggest_int('total_steps', 2000, 15000)
+    warmup_proportion = trial.suggest_float('warmup_proportion', 0.1, 0.9)
+    min_lr = trial.suggest_float('min_lr', 1e-8, 1e-4)
+
+    if optimizer_type == 'ranger':
+        radam = tfa.optimizers.RectifiedAdam(learning_rate=learning_rate, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period=sync_period, slow_step_size=slow_step_size)
+    elif optimizer_type == 'adam':
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    else:
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+
 
     #Callbacks
-    lr_reduction_factor = 0.35
+    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.05, 0.5, log=True)
 
     #Training
-    batch_size = 256
-
+    batch_size = trial.suggest_categorical('batch_size', [128, 256, 512])
     ##########################################
+    print(f"Trial has these parameters: {trial.params}")
+
+    ##### Training
+
     # Create a model with the current trial's hyperparameters
     model = Sequential()
-    model.add(LSTM(hidden_units, return_sequences=False, input_shape=(num_previous_intervals, num_features))) 
-    model.add(Dropout(dropout_rate))
-    model.add(Dense(100)) 
-
-    # Optimizer
-    adam = tf.keras.optimizers.legacy.Adam(learning_rate=learning_rate)
-    optimizer = tfa.optimizers.Lookahead(adam, sync_period=sync_period, slow_step_size=slow_step_size)
+    for i in range(num_layers):
+        if i == 0:
+            if elastic_net:
+                if bidirectional:
+                    model.add(Bidirectional(LSTM(hidden_units, return_sequences=num_layers > 1,
+                            input_shape=(num_previous_intervals, num_features),
+                            kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))) # Apply Elastic Net regularization
+                else:
+                    model.add((LSTM(hidden_units, return_sequences=num_layers > 1,
+                            input_shape=(num_previous_intervals, num_features),
+                            kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))) # Apply Elastic Net regularization
+            else:
+                if bidirectional:
+                    model.add(Bidirectional(LSTM(hidden_units, return_sequences=num_layers > 1,
+                            input_shape=(num_previous_intervals, num_features))))
+                else:
+                    model.add((LSTM(hidden_units, return_sequences=num_layers > 1,
+                            input_shape=(num_previous_intervals, num_features))))
+        else:
+            if elastic_net:
+                if bidirectional:
+                    model.add(Bidirectional(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1,
+                            kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))) # Apply Elastic Net regularization
+                else:
+                    model.add((LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1,
+                            kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg)))) # Apply Elastic Net regularization
+            else:
+                if bidirectional:
+                    model.add(Bidirectional(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1)))
+                else:
+                    model.add(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1))
+        model.add(Dropout(dropout_rate))
+    if elastic_net:
+        model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net
+    else:
+        model.add(Dense(100))
+    
     model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
 
     # Step 1: Split the raw data into training and testing sets
-    df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)
+    df_train, df_test = train_test_split(data, test_size=0.1, shuffle=False)
 
     # Step 2: Initialize and fit the scaler on the training data only
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -79,11 +135,14 @@ def objective(trial):
     model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.1, verbose=1, callbacks=[early_stopping, reduce_lr])
     print("Model training finished!")
     
+
+    ##### Prediction and Evaluation
+
     start = time.time()
     # Evaluate the model
     predictions = model.predict(X_test)
     end = time.time()
-    trial.set_user_attr("inference_time", end-start)
+    trial.set_system_attr("inference_time", end-start)
     
     # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
@@ -112,14 +171,18 @@ def objective(trial):
 
 
 if __name__ == "__main__":
+    local = False
 
     # Load the .env file
     load_dotenv()
 
     database_url = os.environ.get('DATABASE_URL')
 
-    #Create Study
-    study = optuna.create_study(direction='minimize', study_name="formless-v2-search-7", load_if_exists=True, storage=database_url)
+    if local:
+        study = optuna.create_study(direction='minimize')
+    else:
+        #Create Study
+        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch", load_if_exists=True, storage=database_url)
 
     # Do the study
-    study.optimize(objective)  # Adjust the number of trials
+    study.optimize(objective)

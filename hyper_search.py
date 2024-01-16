@@ -29,28 +29,28 @@ def objective(trial):
 
     ############# SEARCH PARAMS #############
     #Layers
-    bidirectional = trial.suggest_categorical('bidirectional', [True, False])
+    bidirectional = False #trial.suggest_categorical('bidirectional', [True, False])
     num_layers = 1 #trial.suggest_int('num_layers', 1, 3)
     layer_multiplier = 1 #trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
-    hidden_units = trial.suggest_int('hidden_units', 600, 1100)
-    dropout_rate = trial.suggest_float('dropout_rate', 0.18, 0.23)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 20, 200)
+    hidden_units = trial.suggest_int('hidden_units', 950, 1050)
+    dropout_rate = 0.215 #trial.suggest_float('dropout_rate', 0.18, 0.23)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 20, 250)
     
     
     # Elastic Net Regularization hyperparameters
-    elastic_net = False #trial.suggest_categorical('elastic_net', [True, False])
-    l1_reg = 0 #trial.suggest_float('l1_reg', 1e-6, 1e-1)
-    l2_reg = 0 #trial.suggest_float('l2_reg', 1e-6, 1e-1)
+    elastic_net = trial.suggest_categorical('elastic_net', [True, False])
+    l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-1)
+    l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-1)
 
 
     # Optimizer
-    optimizer_type = 'ranger'#trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
-    learning_rate = trial.suggest_float('learning_rate', 0.01, 0.03)
-    sync_period = trial.suggest_int('sync_period', 6, 9)
-    slow_step_size = trial.suggest_float('slow_step_size', 0.4, 0.9)
-    total_steps = trial.suggest_int('total_steps', 11000, 20000)
-    warmup_proportion = trial.suggest_float('warmup_proportion', 0.1, 0.9)
-    min_lr = trial.suggest_float('min_lr', 1e-8, 1e-6)
+    optimizer_type = 'ranger' #trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
+    learning_rate = 0.12 #trial.suggest_float('learning_rate', 0.01, 0.03)
+    sync_period = 9 #trial.suggest_int('sync_period', 8, 9)
+    slow_step_size = 0.9 #trial.suggest_float('slow_step_size', 0.4, 0.9)
+    total_steps = 14500 #trial.suggest_int('total_steps', 11000, 20000)
+    warmup_proportion = 0.3 #trial.suggest_float('warmup_proportion', 0.1, 0.9)
+    min_lr = 7e-7 #trial.suggest_float('min_lr', 1e-8, 1e-6)
 
     if optimizer_type == 'ranger':
         radam = tfa.optimizers.RectifiedAdam(learning_rate=learning_rate, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
@@ -62,10 +62,10 @@ def objective(trial):
 
 
     #Callbacks
-    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.25, 0.25)
+    lr_reduction_factor = 0.25 #trial.suggest_float('lr_reduction_factor', 0.25, 0.35)
 
     #Training
-    batch_size = trial.suggest_categorical('batch_size', [64, 512, 768, 1024, 1280])
+    batch_size = trial.suggest_categorical('batch_size', [768, 1024, 1280, 1408])
     ##########################################
     print(f"Trial has these parameters: {trial.params}")
 
@@ -130,11 +130,11 @@ def objective(trial):
     # Callbacks
     early_stopping = EarlyStopping(monitor='val_loss', patience=7, restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=3, verbose=1)
-    pruning = TFKerasPruningCallback(trial, monitor='val_loss')
+    #pruning = TFKerasPruningCallback(trial, monitor='val_loss')
     
     print("Beginning model training...")
     # Train the model
-    history = model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.2, verbose=1, callbacks=[early_stopping, reduce_lr, pruning])
+    history = model.fit(X_train, y_train, epochs=100, batch_size=batch_size, validation_split=0.2, verbose=1, callbacks=[early_stopping, reduce_lr])
     print("Model training finished!")
     
 
@@ -170,7 +170,7 @@ def objective(trial):
     rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
     trial.set_user_attr("tested_rmse", rmse)
 
-    return min(history.history['val_loss'])
+    return rmse
 
 
 if __name__ == "__main__":
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=10))
     else:
         #Create Study
-        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch4", load_if_exists=True, storage=database_url, pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=10))
+        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch-5-noprune", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)

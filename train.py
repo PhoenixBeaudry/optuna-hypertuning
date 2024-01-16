@@ -26,6 +26,7 @@ if __name__ == "__main__":
     data = training_data.values
     num_features = data.shape[1]
 
+
     ############# SEARCH PARAMS #############
     #Layers
     bidirectional = False
@@ -35,15 +36,13 @@ if __name__ == "__main__":
     dropout_rate = 0.16300714101033043
     num_previous_intervals = 133
     
-    
     # Elastic Net Regularization hyperparameters
     elastic_net = False
     l1_reg = 0 
     l2_reg = 0
 
-
     # Optimizer
-    optimizer_type = 'ranger'#trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
+    optimizer_type = 'ranger' #trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
     learning_rate = 0.01312969026939553
     sync_period = 9
     slow_step_size = 0.7496038687048765
@@ -53,10 +52,10 @@ if __name__ == "__main__":
 
     #Callbacks
     lr_reduction_factor = 0.2979832620972566
+
     #Training
     batch_size = 768
 
-    
 
     # Create a model with the current trial's hyperparameters
     model = Sequential()

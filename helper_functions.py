@@ -132,6 +132,16 @@ def create_dataset(data, input_time_steps=100, future_interval_to_predict=100):
         y.append(data[(i + input_time_steps + future_interval_to_predict - 1), 0])
     return np.array(X), np.array(y)
 
+# Function to create test dataset
+def create_test_dataset(data, input_time_steps=100, future_interval_to_predict=100):
+    data = np.array(data)
+    X, y = [], []
+    for i in range(len(data) - input_time_steps - future_interval_to_predict):
+        X.append(data[i:(i + input_time_steps), :])
+        y.append(data[(i + input_time_steps):(i + input_time_steps + future_interval_to_predict), 0])
+    return np.array(X), np.array(y)
+
+
 
 # Scoring function for model
 def calculate_weighted_rmse(predictions: np, actual: np) -> float:

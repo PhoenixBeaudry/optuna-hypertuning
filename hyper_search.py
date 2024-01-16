@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import os
 import time
 import tensorflow_addons as tfa
-from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data
+from helper_functions import create_dataset, calculate_weighted_rmse, decaying_rmse_loss, get_data, create_test_dataset
 
 
 # Optuna objective
@@ -29,11 +29,11 @@ def objective(trial):
 
     ############# SEARCH PARAMS #############
     #Layers
-    bidirectional = False #trial.suggest_categorical('bidirectional', [True, False])
-    num_layers = 1 #trial.suggest_int('num_layers', 1, 3)
-    layer_multiplier = 1 #trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
+    bidirectional = trial.suggest_categorical('bidirectional', [True, False])
+    num_layers = trial.suggest_int('num_layers', 1, 3)
+    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
     hidden_units = trial.suggest_int('hidden_units', 950, 1050)
-    dropout_rate = 0.215 #trial.suggest_float('dropout_rate', 0.18, 0.23)
+    dropout_rate = trial.suggest_float('dropout_rate', 0.18, 0.23)
     num_previous_intervals = trial.suggest_int('num_previous_intervals', 20, 250)
     
     
@@ -44,13 +44,13 @@ def objective(trial):
 
 
     # Optimizer
-    optimizer_type = 'ranger' #trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
-    learning_rate = 0.12 #trial.suggest_float('learning_rate', 0.01, 0.03)
-    sync_period = 9 #trial.suggest_int('sync_period', 8, 9)
-    slow_step_size = 0.9 #trial.suggest_float('slow_step_size', 0.4, 0.9)
-    total_steps = 14500 #trial.suggest_int('total_steps', 11000, 20000)
-    warmup_proportion = 0.3 #trial.suggest_float('warmup_proportion', 0.1, 0.9)
-    min_lr = 7e-7 #trial.suggest_float('min_lr', 1e-8, 1e-6)
+    optimizer_type = trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
+    learning_rate = trial.suggest_float('learning_rate', 0.01, 0.03)
+    sync_period = trial.suggest_int('sync_period', 8, 9)
+    slow_step_size = trial.suggest_float('slow_step_size', 0.4, 0.9)
+    total_steps = trial.suggest_int('total_steps', 11000, 20000)
+    warmup_proportion = trial.suggest_float('warmup_proportion', 0.1, 0.9)
+    min_lr = trial.suggest_float('min_lr', 1e-8, 1e-6)
 
     if optimizer_type == 'ranger':
         radam = tfa.optimizers.RectifiedAdam(learning_rate=learning_rate, total_steps=total_steps, warmup_proportion=warmup_proportion, min_lr=min_lr)
@@ -62,10 +62,11 @@ def objective(trial):
 
 
     #Callbacks
-    lr_reduction_factor = 0.25 #trial.suggest_float('lr_reduction_factor', 0.25, 0.35)
+    lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.25, 0.35)
 
     #Training
     batch_size = trial.suggest_categorical('batch_size', [768, 1024, 1280, 1408])
+
     ##########################################
     print(f"Trial has these parameters: {trial.params}")
 
@@ -106,11 +107,11 @@ def objective(trial):
                     model.add(LSTM(int(hidden_units*layer_multiplier*i), return_sequences=i < num_layers - 1))
         model.add(Dropout(dropout_rate))
     if elastic_net:
-        model.add(Dense(100, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net
+        model.add(Dense(1, kernel_regularizer=l1_l2(l1=l1_reg, l2=l2_reg))) # Apply Elastic Net
     else:
-        model.add(Dense(100))
+        model.add(Dense(1))
     
-    model.compile(optimizer=optimizer, loss=decaying_rmse_loss)
+    model.compile(optimizer=optimizer, loss="mse")
 
     # Step 1: Split the raw data into training and testing sets
     df_train, df_test = train_test_split(data, test_size=0.05, shuffle=False)
@@ -125,7 +126,8 @@ def objective(trial):
 
     # Split the data into X,y sets
     X_train, y_train = create_dataset(df_train_scaled, num_previous_intervals)
-    X_test, y_test = create_dataset(df_test_scaled, num_previous_intervals)
+    X_test, y_test = create_test_dataset(df_test_scaled, num_previous_intervals)
+    X_test_inverse, y_test_inverse = create_test_dataset(df_test, num_previous_intervals)
 
     # Callbacks
     early_stopping = EarlyStopping(monitor='val_loss', patience=7, restore_best_weights=True)
@@ -139,13 +141,13 @@ def objective(trial):
     
 
     ##### Prediction and Evaluation
-
     start = time.time()
     # Evaluate the model
     predictions = model.predict(X_test)
+
     end = time.time()
     trial.set_user_attr("inference_time", end-start)
-    
+
     # Create a zero-filled array with the same number of samples and timesteps
     modified_predictions = np.zeros((predictions.shape[0], predictions.shape[1], num_features))
     # Place predictions into the first feature of this array
@@ -154,21 +156,16 @@ def objective(trial):
     modified_predictions_reshaped = modified_predictions.reshape(-1, num_features)
     # Apply inverse_transform
     original_scale_predictions = scaler.inverse_transform(modified_predictions_reshaped)
-    # Reshape back to original predictions shape, if needed
-    original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1])
-    # Create a zero-filled array with the same number of samples and timesteps
-    modified_y_test = np.zeros((y_test.shape[0], y_test.shape[1], num_features))
-    # Place y_test into the first feature of this array
-    modified_y_test[:, :, 0] = y_test
-    # Reshape modified_y_test for inverse_transform
-    modified_y_test_reshaped = modified_y_test.reshape(-1, num_features)
-    # Apply inverse_transform
-    original_scale_y_test = scaler.inverse_transform(modified_y_test_reshaped)
-    # Reshape back to original y_test shape, if needed
-    # (Selecting only the first feature, assuming y_test corresponds to the first feature)
-    original_scale_y_test = original_scale_y_test[:, 0].reshape(y_test.shape[0], y_test.shape[1])
-    rmse = calculate_weighted_rmse(original_scale_predictions, original_scale_y_test)
-    trial.set_user_attr("tested_rmse", rmse)
+    # Reshape back to original predictions shape
+    original_scale_predictions = original_scale_predictions[:, 0].reshape(predictions.shape[0], predictions.shape[1]).flatten().tolist()
+    
+    pred_list = []
+    for i in range(X_test.shape[0]):
+        # Interp between last seen value and prediction
+        full_pred = np.linspace(X_test_inverse[i][-1][0], original_scale_predictions[i], 100)
+        pred_list.append(full_pred)
+
+    rmse = calculate_weighted_rmse(pred_list, y_test_inverse)
 
     return rmse
 

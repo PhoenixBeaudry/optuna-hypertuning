@@ -3,10 +3,8 @@ import numpy as np
 import pandas as pd
 import pickle
 import tensorflow as tf
-import os
 
 def get_data_struct_from_pickle(filepath):
-
     #Load the data from the pickle file
     with open(filepath, 'rb') as file:
         data_structure = pickle.load(file)
@@ -126,12 +124,12 @@ def add_technical_indicators(df):
 
 
 # Function to create dataset
-def create_dataset(data, input_time_steps=100, future_intervals=100):
+def create_dataset(data, input_time_steps=100, future_interval_to_predict=100):
     data = np.array(data)
     X, y = [], []
-    for i in range(len(data) - input_time_steps - future_intervals):
+    for i in range(len(data) - input_time_steps - future_interval_to_predict):
         X.append(data[i:(i + input_time_steps), :])
-        y.append(data[(i + input_time_steps):(i + input_time_steps + future_intervals), 0])
+        y.append(data[(i + input_time_steps + future_interval_to_predict - 1), 0])
     return np.array(X), np.array(y)
 
 

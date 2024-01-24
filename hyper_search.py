@@ -22,29 +22,29 @@ from helper_functions import create_dataset, calculate_weighted_rmse, decaying_r
 def objective(trial):
     print("===== Starting new trial =====")
     #### Data Loading
-    df = get_data()
-    training_data = df[['close','high','low','volume','EMA_5','EMA_15','RSI','MACD','Signal_Line','mean1','mean2','hour','day_of_week']]
+    df = get_data('data/1y_data.pickle')
+    training_data = df[['close','high','low','volume','EMA_10','EMA_20','RSI','MACD','Signal_Line','mean1','mean2','hour','day_of_week']]
     data = training_data.values
     num_features = data.shape[1]
 
     ############# SEARCH PARAMS #############
     #Layers
-    bidirectional = trial.suggest_categorical('bidirectional', [True, False])
-    num_layers = trial.suggest_int('num_layers', 1, 3)
-    layer_multiplier = trial.suggest_float('layer_multiplier', 0.25, 2.0, step=0.25)
-    hidden_units = trial.suggest_int('hidden_units', 950, 1050)
+    bidirectional = False
+    num_layers = 1
+    layer_multiplier = 1
+    hidden_units = trial.suggest_int('hidden_units', 300, 700)
     dropout_rate = trial.suggest_float('dropout_rate', 0.18, 0.23)
-    num_previous_intervals = trial.suggest_int('num_previous_intervals', 20, 250)
+    num_previous_intervals = trial.suggest_int('num_previous_intervals', 20, 150)
     
     
     # Elastic Net Regularization hyperparameters
-    elastic_net = trial.suggest_categorical('elastic_net', [True, False])
+    elastic_net = False #trial.suggest_categorical('elastic_net', [True, False])
     l1_reg = trial.suggest_float('l1_reg', 1e-6, 1e-1)
     l2_reg = trial.suggest_float('l2_reg', 1e-6, 1e-1)
 
 
     # Optimizer
-    optimizer_type = trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
+    optimizer_type = 'ranger' #trial.suggest_categorical('optimizer_type', ['adam', 'ranger'])
     learning_rate = trial.suggest_float('learning_rate', 0.01, 0.03)
     sync_period = trial.suggest_int('sync_period', 8, 9)
     slow_step_size = trial.suggest_float('slow_step_size', 0.4, 0.9)
@@ -65,7 +65,7 @@ def objective(trial):
     lr_reduction_factor = trial.suggest_float('lr_reduction_factor', 0.25, 0.35)
 
     #Training
-    batch_size = trial.suggest_categorical('batch_size', [768, 1024, 1280, 1408])
+    batch_size = trial.suggest_categorical('batch_size', [256, 512, 768])
 
     ##########################################
     print(f"Trial has these parameters: {trial.params}")
@@ -130,8 +130,8 @@ def objective(trial):
     X_test_inverse, y_test_inverse = create_test_dataset(df_test, num_previous_intervals)
 
     # Callbacks
-    early_stopping = EarlyStopping(monitor='val_loss', patience=7, restore_best_weights=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=3, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=lr_reduction_factor, patience=4, verbose=1)
     #pruning = TFKerasPruningCallback(trial, monitor='val_loss')
     
     print("Beginning model training...")
@@ -179,10 +179,10 @@ if __name__ == "__main__":
     database_url = os.environ.get('DATABASE_URL')
 
     if local:
-        study = optuna.create_study(direction='minimize', pruner=optuna.pruners.SuccessiveHalvingPruner(min_resource=10))
+        study = optuna.create_study(direction='minimize')
     else:
         #Create Study
-        study = optuna.create_study(direction='minimize', study_name="formless-v2-bigsearch-5-noprune", load_if_exists=True, storage=database_url)
+        study = optuna.create_study(direction='minimize', study_name="formless-v3-single-interval-new-ema", load_if_exists=True, storage=database_url)
 
     # Do the study
     study.optimize(objective)

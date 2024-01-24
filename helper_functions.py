@@ -89,8 +89,8 @@ def add_technical_indicators(df):
     df['SMA_15'] = df['close'].rolling(window=15).mean()
 
     # Exponential Moving Average
-    df['EMA_5'] = df['close'].ewm(span=5, adjust=False).mean()
-    df['EMA_15'] = df['close'].ewm(span=15, adjust=False).mean()
+    df['EMA_10'] = df['close'].ewm(span=10, adjust=False).mean()
+    df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
 
     # Relative Strength Index
     delta = df['close'].diff()

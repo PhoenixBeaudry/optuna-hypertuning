@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     #### Data Loading
     df = get_data()
-    training_data = df[['close','high','low','volume','EMA_5','EMA_15','RSI','MACD','Signal_Line','mean1','mean2','hour','day_of_week']]
+    training_data = df[['close','high','low','volume','EMA_10','EMA_20','RSI','MACD','Signal_Line','mean1','mean2','hour','day_of_week']]
     data = training_data.values
     num_features = data.shape[1]
 
